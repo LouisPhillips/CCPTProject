@@ -1,0 +1,52 @@
+{
+    "name": "PlayerController",
+    "maps": [
+        {
+            "name": "Player",
+            "id": "f7fb4a72-3cde-422c-897f-cdf2b42caa97",
+            "actions": [
+                {
+                    "name": "Push",
+                    "type": "Button",
+                    "id": "5bac4541-d327-47a1-823e-1da0ad2b6b98",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": ""
+                },
+                {
+                    "name": "Turning",
+                    "type": "PassThrough",
+                    "id": "b8e63f18-44be-4d58-a3b4-a9279ea1615e",
+                    "expectedControlType": "Vector2",
+                    "processors": "",
+                    "interactions": ""
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "329a28fe-9387-4bfd-a193-4a542aed3cba",
+                    "path": "<XInputController>/buttonSouth",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Push",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "219c17a4-97a3-4f28-ab45-559d33f8a79d",
+                    "path": "<Gamepad>/leftStick",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Turning",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
+        }
+    ],
+    "controlSchemes": []
+}
