@@ -13,6 +13,7 @@ public class PlayerMovement : MonoBehaviour
     public float pushSpeed;
     public float turnSpeed;
 
+    private bool resetPush = true;
     Vector2 movement;
     void Awake()
     {
@@ -20,7 +21,8 @@ public class PlayerMovement : MonoBehaviour
         rb = GetComponent<Rigidbody>();
 
         controller.Player.Turning.performed += context => movement = context.ReadValue<Vector2>();
-
+        controller.Player.Turning.performed += context => resetPush = true;
+        //controller.Player.Turning.performed += context => rb.mass = 0.1f;
         controller.Player.Push.performed += context => push = true;
         //controller.Movement.Push.performed += context => 
     }
@@ -36,18 +38,18 @@ public class PlayerMovement : MonoBehaviour
     // Update is called once per frame
     void FixedUpdate()
     {
-        Debug.Log(push);
+        Debug.Log(resetPush);
 
-        
-       
+
+
 
         Movement(movement);
 
         // Vector3 direction = rotation * tns.forward * speed
         // rigidbody . addforce (direction)
 
-       
-        
+
+
     }
 
     void Movement(Vector2 direction)
@@ -55,8 +57,11 @@ public class PlayerMovement : MonoBehaviour
         if (push)
         {
             rb.AddForce(transform.forward * pushSpeed, ForceMode.Impulse);
-            push = false;
+            rb.mass += 0.03f;
         }
+
+        
+        //rb.AddForce(transform.forward * pushSpeed, ForceMode.Impulse);
         //rb.AddForce(transform.forward * 1);
         //GetComponent<Rigidbody>().AddForce(new Vector3 (direction.x, 0, direction.y) * 5f);
 
@@ -64,16 +69,20 @@ public class PlayerMovement : MonoBehaviour
         float getSpeed = rb.velocity.magnitude;
         float maxSpeed = 5f;
         Vector3 vel = rb.velocity;
-        if(vel.magnitude > maxSpeed)
+        if (vel.magnitude > maxSpeed)
         {
             rb.velocity = vel.normalized * maxSpeed;
         }
         if (getSpeed > 0.1)
         {
-            transform.RotateAroundLocal(Vector3.up, direction.x * 2f * Time.deltaTime);
-        }
-        
+            transform.RotateAroundLocal(Vector3.up, direction.x * turnSpeed * Time.deltaTime);
 
-        
+            //ANGULAR VELOCITY
+        }
+
+
+
+
+
     }
 }
