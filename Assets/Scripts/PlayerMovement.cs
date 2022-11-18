@@ -16,6 +16,8 @@ public class PlayerMovement : MonoBehaviour
     public float gravity = 9.8f;
     public float gravityMultiplier = 2f;
     private bool resetPush = true;
+
+    public float distToGround;
     Vector2 movement;
     void Awake()
     {
@@ -45,15 +47,23 @@ public class PlayerMovement : MonoBehaviour
 
 
 
-        Movement(movement);
+
 
         // Vector3 direction = rotation * tns.forward * speed
         // rigidbody . addforce (direction)
 
 
         // ground check
-        //gravity = gravity * gravityMultiplier;
-        rb.velocity = (Vector3.down + rb.velocity) * gravityMultiplier; 
+
+        if (!IsGrounded())
+        {
+            rb.velocity = (Vector3.down + rb.velocity) * gravityMultiplier;
+        }
+        else
+        {
+            Movement(movement);
+        }
+
 
     }
 
@@ -64,10 +74,10 @@ public class PlayerMovement : MonoBehaviour
             rb.AddForce(transform.forward * pushSpeed, ForceMode.Impulse);
             //rb.mass += 0.03f;
         }
-       
+
 
         //rb.velocity -= new Vector3(rb.velocity.x, gravity, rb.velocity.z);
-        
+
 
         //4/3 p ^ 3;
         //rb.AddForce(transform.forward * pushSpeed, ForceMode.Impulse);
@@ -75,7 +85,7 @@ public class PlayerMovement : MonoBehaviour
         //GetComponent<Rigidbody>().AddForce(new Vector3 (direction.x, 0, direction.y) * 5f);
 
         //transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles + new Vector3(0f, direction.x * turnSpeed * Time.deltaTime, 0f));
-        /*float getSpeed = rb.velocity.magnitude;
+        float getSpeed = rb.velocity.magnitude;
         float maxSpeed = 5f;
         Vector3 vel = rb.velocity;
         if (vel.magnitude > maxSpeed)
@@ -87,11 +97,16 @@ public class PlayerMovement : MonoBehaviour
             transform.RotateAroundLocal(Vector3.up, direction.x * turnSpeed * Time.deltaTime);
 
             //ANGULAR VELOCITY
-        }*/
+        }
 
 
 
 
 
+    }
+
+    bool IsGrounded()
+    {
+        return Physics.Raycast(transform.position, -Vector3.up, (float)(distToGround + 0.1));
     }
 }
