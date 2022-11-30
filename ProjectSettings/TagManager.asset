@@ -3,7 +3,15 @@
 --- !u!78 &1
 TagManager:
   serializedVersion: 2
-  tags: []
+  tags:
+  - Skateboard
+  - Wheels/FrontRight
+  - Wheels/FrontLeft
+  - Wheels/BackRight
+  - Wheels/BackLeft
+  - Layer/Concrete
+  - Layer/Dirt
+  - Layer/Grass
   layers:
   - Default
   - TransparentFX

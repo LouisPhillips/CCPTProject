@@ -11,7 +11,7 @@
                     "id": "5bac4541-d327-47a1-823e-1da0ad2b6b98",
                     "expectedControlType": "Button",
                     "processors": "",
-                    "interactions": ""
+                    "interactions": "Press,Hold"
                 },
                 {
                     "name": "Turning",

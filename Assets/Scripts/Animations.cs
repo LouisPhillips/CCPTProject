@@ -4,15 +4,19 @@ using UnityEngine;
 
 public class Animations : MonoBehaviour
 {
-    // Start is called before the first frame update
+    private GameObject skateboard;
     void Start()
     {
-        
+        skateboard = GameObject.FindGameObjectWithTag("Skateboard");
     }
 
     // Update is called once per frame
     void Update()
     {
-        
+        if (skateboard.GetComponent<PlayerMovement4>().push)
+        {
+            Debug.Log("pushed");
+            GetComponent<Animator>().SetTrigger("Push");
+        }
     }
 }
