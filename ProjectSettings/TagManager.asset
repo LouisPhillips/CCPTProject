@@ -12,6 +12,8 @@ TagManager:
   - Layer/Concrete
   - Layer/Dirt
   - Layer/Grass
+  - Surface/Text
+  - Surface/Changer
   layers:
   - Default
   - TransparentFX

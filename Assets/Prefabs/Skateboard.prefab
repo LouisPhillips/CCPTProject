@@ -60,7 +60,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 325057065522895607}
   m_LocalRotation: {x: 0.2679324, y: 0.18224643, z: -0.05169187, w: 0.9446304}
-  m_LocalPosition: {x: -3.5942476, y: 2.7690074, z: -9.099931}
+  m_LocalPosition: {x: -1.9700004, y: 0.07999995, z: -5.050001}
   m_LocalScale: {x: 1.2201451, y: 0.9219527, z: 0.9161047}
   m_Children:
   - {fileID: 8233226287001147873}
@@ -181,7 +181,7 @@ MonoBehaviour:
     ModeOverride: 0
     LensShift: {x: 0, y: 0}
     GateFit: 2
-    m_SensorSize: {x: 2.1543624, y: 1}
+    m_SensorSize: {x: 2.1466923, y: 1}
   m_Transitions:
     m_BlendHint: 0
     m_InheritPosition: 0
@@ -1319,11 +1319,15 @@ MonoBehaviour:
   acceleration: 1500
   breakingForce: 300
   maxTurnAngle: 15
+  maxAcceleration: 225
   deaccelerationRate: 0.5
   currentAcceleration: 0
+  currentTurnAngle: 0
   getSpeed: 0
   push: 0
   respawning: 0
+  playerCam: {fileID: 0}
+  freeCam: {fileID: 0}
 --- !u!1 &3011810313290654698
 GameObject:
   m_ObjectHideFlags: 0

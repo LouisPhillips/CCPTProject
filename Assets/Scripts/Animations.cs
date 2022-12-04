@@ -13,10 +13,33 @@ public class Animations : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        if (skateboard.GetComponent<PlayerMovement4>().push)
+        if (skateboard.GetComponent<PlayerMovement4>().push && PlayerMovement4.MainCamOn)
         {
-            Debug.Log("pushed");
-            GetComponent<Animator>().SetTrigger("Push");
+            GetComponent<Animator>().Play("Pushing");
+        }
+
+
+
+        if (GetComponent<Animator>().GetCurrentAnimatorStateInfo(0).IsName("Riding"))
+        {
+            PlayerMovement4.riding = true;
+            if (skateboard.GetComponent<PlayerMovement4>().olliePressed)
+            {
+                GetComponent<Animator>().Play("Ollie");
+            }
+        }
+        else
+        {
+            PlayerMovement4.riding = false;
+        }
+
+        if (GetComponent<Animator>().GetCurrentAnimatorStateInfo(0).IsName("Ollie"))
+        {
+            PlayerMovement4.ollie = true;
+        }
+        else
+        {
+            PlayerMovement4.ollie = false;
         }
     }
 }

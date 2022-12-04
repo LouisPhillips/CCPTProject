@@ -19,6 +19,11 @@ public class SurfaceChange : MonoBehaviour
     {
         player = GameObject.FindGameObjectWithTag("Player");
 
+
+    }
+
+    private void Update()
+    {
         switch (state)
         {
             case enumState.Concrete:
@@ -37,11 +42,6 @@ public class SurfaceChange : MonoBehaviour
                     return;
                 }
         }
-    }
 
-    private void Update()
-    {
-
-        
     }
 }

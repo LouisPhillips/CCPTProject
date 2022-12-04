@@ -3,11 +3,16 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Cinemachine;
+using UnityEngine.UI;
 
 public class PlayerMovement4 : MonoBehaviour
 {
     private PlayerController controls;
     private Vector2 movement;
+    private Vector2 camMovement;
+    private Vector2 camLook;
+
+    private GameObject character;
 
     [Header("Wheels")]
     [SerializeField] public WheelCollider frontRight;
@@ -40,6 +45,19 @@ public class PlayerMovement4 : MonoBehaviour
 
     private bool breaking;
 
+    public bool olliePressed;
+    private float ollieDelay = 0f;
+    private float OllieDelayMax = 0.4f;
+    public static bool riding = true;
+    public static bool ollie = true;
+
+    public float freeCamTurnSpeed = 15f;
+
+    public static bool surfaceBeingChanged = false;
+    RaycastHit objectCheck;
+    private GameObject ui;
+    public int surfaceIndex = 0;
+
     [Header("Respawn")]
     private GameObject respawnPoint;
     private float respawnDelay = 0f;
@@ -47,40 +65,63 @@ public class PlayerMovement4 : MonoBehaviour
     [HideInInspector] public bool respawning = false;
     RaycastHit crash;
 
-    private CinemachineVirtualCamera camera;
+    public CinemachineVirtualCamera playerCam;
+    public CinemachineVirtualCamera freeCam;
+    public static bool MainCamOn = true;
 
     void Awake()
     {
         controls = new PlayerController();
 
-        controls.Player.Turning.performed += context => movement = context.ReadValue<Vector2>();
-
-        controls.Player.Push.performed += context => push = true;
-
         controls.Player.Break.performed += context => breaking = true;
         controls.Player.Break.canceled += context => breaking = false;
+
+        controls.Player.GoLeft.performed += context => surfaceIndex -= 1;
+        controls.Player.GoRight.performed += context => surfaceIndex += 1;
 
         respawnPoint = GameObject.FindGameObjectWithTag("Respawn");
 
         rb = GetComponent<Rigidbody>();
         ragdoll = GetComponentInChildren<Ragdoll>();
 
-        camera = GetComponentInChildren<CinemachineVirtualCamera>();
+        playerCam = GetComponentInChildren<CinemachineVirtualCamera>();
+
+        freeCam.gameObject.SetActive(false);
+
+        ui = GameObject.FindGameObjectWithTag("Surface/Changer");
+        ui.SetActive(false);
+
+        character = GameObject.FindGameObjectWithTag("Player");
     }
 
     void FixedUpdate()
     {
-        Movement();
-        Turning();
-        Crash();
-        SurfaceDetection();
-        Breaking();
-        FallOver();
-        //camera.m_Lens.FieldOfView = camera.m_Lens.FieldOfView + (getSpeed * Time.deltaTime);
+        if (MainCamOn)
+        {
+            Movement();
+            Turning();
+            Crash();
+            SurfaceDetection();
+            Breaking();
+            FallOver();
+            Ollie();
+            ui.SetActive(false);
+        }
+    }
+    private void Update()
+    {
+        if (!MainCamOn)
+        {
+            CameraControls();
+        }
+        CameraSwitch();
+        Debug.DrawRay(transform.position, transform.forward, Color.cyan, 0.6f);
     }
 
     void Movement()
     {
+        controls.Player.Push.performed += context => push = true;
+
         if (currentAcceleration > 0)
         {
             currentAcceleration -= deaccelerationRate;
@@ -131,6 +172,7 @@ public class PlayerMovement4 : MonoBehaviour
 
     void Turning()
     {
+        controls.Player.Turning.performed += context => movement = context.ReadValue<Vector2>();
         // \/\/\/\/ this causing steering snap
         currentTurnAngle = maxTurnAngle * movement.x;
 
@@ -170,7 +212,7 @@ public class PlayerMovement4 : MonoBehaviour
     void Crash()
     {
         getSpeed = rb.velocity.magnitude;
-        if (getSpeed > 1.5 && Physics.Raycast(transform.position, transform.forward, out crash, 1))
+        if (getSpeed > 1.5 && Physics.Raycast(transform.position, transform.forward, out crash, 0.6f))
         {
             // player flys off, controls disabled, respawn imminent 
             ragdoll.Die();
@@ -181,9 +223,9 @@ public class PlayerMovement4 : MonoBehaviour
             Respawn();
         }
         // get normalized speed and if crash and average speed is > just a bump allow for a 'crash'
-        Debug.DrawRay(transform.position, transform.forward, Color.cyan, 1);
+       
 
-        
+
     }
 
     void Respawn()
@@ -194,6 +236,9 @@ public class PlayerMovement4 : MonoBehaviour
             transform.position = respawnPoint.transform.position;
             transform.rotation = respawnPoint.transform.rotation;
 
+            ragdoll.ToggleRagdoll(false);
+            character.transform.parent = transform;
+            
             respawning = false;
             respawnDelay = 0f;
         }
@@ -215,7 +260,6 @@ public class PlayerMovement4 : MonoBehaviour
         {
             if (surfaceCheck.transform.tag == "Layer/Grass")
             {
-                Debug.Log("on grass");
                 deaccelerationRate = 1.25f;
                 rb.velocity = rb.velocity / 1.075f;
                 frontLeftForwardStiffness.stiffness = 0f;
@@ -223,14 +267,13 @@ public class PlayerMovement4 : MonoBehaviour
                 backLeftForwardStiffness.stiffness = 0f;
                 backRightForwardStiffness.stiffness = 0f;
 
-                if(rb.velocity.magnitude > 3f)
+                if (rb.velocity.magnitude > 3f)
                 {
                     ragdoll.Die();
                 }
             }
             else if (surfaceCheck.transform.tag == "Layer/Concrete")
             {
-                Debug.Log("on concrete");
                 deaccelerationRate = 0.25f;
                 rb.velocity = rb.velocity / 1f;
                 frontLeftForwardStiffness.stiffness = 1f;
@@ -240,7 +283,6 @@ public class PlayerMovement4 : MonoBehaviour
             }
             else if (surfaceCheck.transform.tag == "Layer/Dirt")
             {
-                Debug.Log("on dirt");
                 deaccelerationRate = 0.75f;
                 rb.velocity = rb.velocity / 1.05f;
                 frontLeftForwardStiffness.stiffness = 1f;
@@ -257,7 +299,7 @@ public class PlayerMovement4 : MonoBehaviour
 
     void Breaking()
     {
-        if(breaking)
+        if (breaking)
         {
             rb.velocity = rb.velocity / 1.01f;
             currentAcceleration = 0;
@@ -266,11 +308,126 @@ public class PlayerMovement4 : MonoBehaviour
 
     void FallOver()
     {
-        Debug.Log(transform.rotation.x);
         if (transform.rotation.x > 0.30 || transform.rotation.z > 0.30 || transform.rotation.x < -0.30 || transform.rotation.z < -0.30)
         {
             ragdoll.Die();
         }
+    }
+
+    void Ollie()
+    {
+        Debug.Log(riding);
+        controls.Player.Ollie.performed += context => olliePressed = true;
+
+        if (olliePressed && ollie)
+        {
+            ollieDelay += Time.deltaTime;
+            if (ollieDelay > OllieDelayMax)
+            {
+                rb.AddForce(transform.up * 5000, ForceMode.Impulse);
+                olliePressed = false;
+                ollieDelay = 0f;
+            }
+
+        }
+
+    }
+
+    void CameraSwitch()
+    {
+        if (controls.Player.Switch.triggered && MainCamOn)
+        {
+            playerCam.gameObject.SetActive(false);
+            freeCam.gameObject.SetActive(true);
+            MainCamOn = false;
+        }
+        else if (controls.Player.Switch.triggered && !MainCamOn)
+        {
+            playerCam.gameObject.SetActive(true);
+            freeCam.gameObject.SetActive(false);
+            surfaceBeingChanged = false;
+            MainCamOn = true;
+        }
+    }
+
+    void CameraControls()
+    {
+        controls.Player.Turning.performed += context => camMovement = context.ReadValue<Vector2>();
+        controls.Player.Look.performed += context => camLook = context.ReadValue<Vector2>();
+
+        Vector3 cameraDirection = (camMovement.y * transform.forward) + (camMovement.x * transform.right);
+        //freeCam.transform.position += cameraDirection * 10 * Time.deltaTime;
+
+        freeCam.transform.position += freeCam.transform.forward * freeCamTurnSpeed * camMovement.y * Time.deltaTime;
+        freeCam.transform.position += freeCam.transform.right * freeCamTurnSpeed * camMovement.x * Time.deltaTime;
+
+        freeCam.transform.rotation *= Quaternion.Euler(camLook.y * Time.deltaTime * -100, camLook.x * Time.deltaTime * 100, -freeCam.transform.eulerAngles.z);
+
+        if (Physics.Raycast(freeCam.transform.position, freeCam.transform.forward, out objectCheck, Mathf.Infinity) && !surfaceBeingChanged)
+        {
+            if (objectCheck.transform.tag == "Layer/Concrete" || objectCheck.transform.tag == "Layer/Grass" || objectCheck.transform.tag == "Layer/Dirt")
+            {
+                if (controls.Player.Push.triggered)
+                {
+                    surfaceBeingChanged = true;
+                }
+            }
+        }
+        if (surfaceBeingChanged)
+        {
+            ChangeSurface();
+        }
+    }
+
+    void ChangeSurface()
+    {
+        ui.SetActive(true);
+        GameObject text = GameObject.FindGameObjectWithTag("Surface/Text");
+
+        if (surfaceIndex == 0)
+        {
+            text.GetComponent<Text>().text = "Concrete";
+            if (controls.Player.Push.triggered)
+            {
+                objectCheck.transform.tag = "Layer/Concrete";
+                objectCheck.transform.GetComponent<SurfaceChange>().state = SurfaceChange.enumState.Concrete;
+            }
+
+        }
+
+        if (surfaceIndex == 1)
+        {
+            text.GetComponent<Text>().text = "Dirt";
+            if (controls.Player.Push.triggered)
+            {
+                objectCheck.transform.tag = "Layer/Dirt";
+                objectCheck.transform.GetComponent<SurfaceChange>().state = SurfaceChange.enumState.Dirt;
+            }
+        }
+
+        if (surfaceIndex == 2)
+        {
+            text.GetComponent<Text>().text = "Grass";
+            if (controls.Player.Push.triggered)
+            {
+                objectCheck.transform.tag = "Layer/Grass";
+                objectCheck.transform.GetComponent<SurfaceChange>().state = SurfaceChange.enumState.Grass;
+            }
+        }
+        if (surfaceIndex > 2)
+        {
+            surfaceIndex = 0;
+        }
+        if (surfaceIndex < 0)
+        {
+            surfaceIndex = 2;
+        }
+
+        if (MainCamOn)
+        {
+            ui.SetActive(false);
+        }
+
     }
 
     private void OnEnable()
