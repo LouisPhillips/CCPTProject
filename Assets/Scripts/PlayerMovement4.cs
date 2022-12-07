@@ -47,7 +47,7 @@ public class PlayerMovement4 : MonoBehaviour
 
     public bool olliePressed;
     private float ollieDelay = 0f;
-    private float OllieDelayMax = 0.4f;
+    private float OllieDelayMax = 0.55f;
     public static bool riding = true;
     public static bool ollie = true;
 
@@ -115,7 +115,7 @@ public class PlayerMovement4 : MonoBehaviour
             CameraControls();
         }
         CameraSwitch();
-        Debug.DrawRay(transform.position, transform.forward, Color.cyan, 0.6f);
+        Debug.DrawRay(new Vector3(transform.position.x, transform.position.y + 0.05f, transform.position.z), transform.forward, Color.cyan, 0.63f);
     }
 
     void Movement()
@@ -212,7 +212,7 @@ public class PlayerMovement4 : MonoBehaviour
     void Crash()
     {
         getSpeed = rb.velocity.magnitude;
-        if (getSpeed > 1.5 && Physics.Raycast(transform.position, transform.forward, out crash, 0.6f))
+        if (getSpeed > 1.5 && Physics.Raycast(new Vector3(transform.position.x, transform.position.y + 0.1f, transform.position.z), transform.forward, out crash, 0.7f))
         {
             // player flys off, controls disabled, respawn imminent 
             ragdoll.Die();
@@ -223,7 +223,7 @@ public class PlayerMovement4 : MonoBehaviour
             Respawn();
         }
         // get normalized speed and if crash and average speed is > just a bump allow for a 'crash'
-       
+
 
 
     }
@@ -238,7 +238,9 @@ public class PlayerMovement4 : MonoBehaviour
 
             ragdoll.ToggleRagdoll(false);
             character.transform.parent = transform;
-            
+            character.transform.position = respawnPoint.transform.position;
+            character.transform.rotation = respawnPoint.transform.rotation;
+
             respawning = false;
             respawnDelay = 0f;
         }
@@ -317,6 +319,10 @@ public class PlayerMovement4 : MonoBehaviour
     void Ollie()
     {
         Debug.Log(riding);
+        if (ollieDelay > 0.01f)
+        {
+
+        }
         controls.Player.Ollie.performed += context => olliePressed = true;
 
         if (olliePressed && ollie)
