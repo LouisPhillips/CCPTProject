@@ -22,12 +22,11 @@ public class PlayerMovement4 : MonoBehaviour
 
     [Header("Speed Attributes")]
     public float pushForce = 75f;
-    public float acceleration = 500f;
     public float breakingForce = 300f;
-    public float maxTurnAngle = 15f;
+    public float maxTurnAngle = 12.5f;
     public float maxAcceleration = 225f;
 
-    public float deaccelerationRate = 0.5f;
+    public float deaccelerationRate = 0.1f;
 
     public float currentAcceleration = 0f;
     private float currentBreakforce = 0f;
@@ -50,6 +49,7 @@ public class PlayerMovement4 : MonoBehaviour
     private float OllieDelayMax = 0.55f;
     public static bool riding = true;
     public static bool ollie = true;
+    public float ollieHeight = 4f;
 
     public float freeCamTurnSpeed = 15f;
 
@@ -69,6 +69,8 @@ public class PlayerMovement4 : MonoBehaviour
     public CinemachineVirtualCamera freeCam;
     public static bool MainCamOn = true;
 
+    private float weight = 0;
+
     void Awake()
     {
         controls = new PlayerController();
@@ -79,12 +81,14 @@ public class PlayerMovement4 : MonoBehaviour
         controls.Player.GoLeft.performed += context => surfaceIndex -= 1;
         controls.Player.GoRight.performed += context => surfaceIndex += 1;
 
+        controls.Player.Pause.performed += context => PauseMenu.pausePressed = true;
+
         respawnPoint = GameObject.FindGameObjectWithTag("Respawn");
 
         rb = GetComponent<Rigidbody>();
         ragdoll = GetComponentInChildren<Ragdoll>();
 
-        playerCam = GetComponentInChildren<CinemachineVirtualCamera>();
+        //playerCam = GetComponentInChildren<CinemachineVirtualCamera>();
 
         freeCam.gameObject.SetActive(false);
 
@@ -122,6 +126,8 @@ public class PlayerMovement4 : MonoBehaviour
     {
         controls.Player.Push.performed += context => push = true;
 
+        rb.velocity = rb.velocity / weight;
+
         if (currentAcceleration > 0)
         {
             currentAcceleration -= deaccelerationRate;
@@ -131,7 +137,7 @@ public class PlayerMovement4 : MonoBehaviour
         {
             currentAcceleration = maxAcceleration;
         }
-
+            
         if (push)
         {
 
@@ -176,6 +182,8 @@ public class PlayerMovement4 : MonoBehaviour
         // \/\/\/\/ this causing steering snap
         currentTurnAngle = maxTurnAngle * movement.x;
 
+     
+       
         WheelFrictionCurve frontLeftSidewaysStiffness = frontLeft.sidewaysFriction;
         WheelFrictionCurve frontRightSidewaysStiffness = frontRight.sidewaysFriction;
         WheelFrictionCurve backLeftSidewaysStiffness = backLeft.sidewaysFriction;
@@ -212,7 +220,7 @@ public class PlayerMovement4 : MonoBehaviour
     void Crash()
     {
         getSpeed = rb.velocity.magnitude;
-        if (getSpeed > 1.5 && Physics.Raycast(new Vector3(transform.position.x, transform.position.y + 0.1f, transform.position.z), transform.forward, out crash, 0.7f))
+        if (getSpeed > 1.5 && Physics.Raycast(new Vector3(transform.position.x, transform.position.y + 0.15f, transform.position.z), transform.forward, out crash, 0.7f))
         {
             // player flys off, controls disabled, respawn imminent 
             ragdoll.Die();
@@ -237,6 +245,7 @@ public class PlayerMovement4 : MonoBehaviour
             transform.rotation = respawnPoint.transform.rotation;
 
             ragdoll.ToggleRagdoll(false);
+            currentAcceleration = 0f;
             character.transform.parent = transform;
             character.transform.position = respawnPoint.transform.position;
             character.transform.rotation = respawnPoint.transform.rotation;
@@ -262,12 +271,12 @@ public class PlayerMovement4 : MonoBehaviour
         {
             if (surfaceCheck.transform.tag == "Layer/Grass")
             {
-                deaccelerationRate = 1.25f;
+                deaccelerationRate = 5f;
                 rb.velocity = rb.velocity / 1.075f;
-                frontLeftForwardStiffness.stiffness = 0f;
-                frontRightForwardStiffness.stiffness = 0f;
-                backLeftForwardStiffness.stiffness = 0f;
-                backRightForwardStiffness.stiffness = 0f;
+                frontLeftForwardStiffness.stiffness = 1f;
+                frontRightForwardStiffness.stiffness = 1f;
+                backLeftForwardStiffness.stiffness = 1f;
+                backRightForwardStiffness.stiffness = 1f;
 
                 if (rb.velocity.magnitude > 3f)
                 {
@@ -330,7 +339,7 @@ public class PlayerMovement4 : MonoBehaviour
             ollieDelay += Time.deltaTime;
             if (ollieDelay > OllieDelayMax)
             {
-                rb.AddForce(transform.up * 5000, ForceMode.Impulse);
+                rb.AddForce(transform.up * 5000 * ollieHeight, ForceMode.Impulse);
                 olliePressed = false;
                 ollieDelay = 0f;
             }
@@ -341,18 +350,21 @@ public class PlayerMovement4 : MonoBehaviour
 
     void CameraSwitch()
     {
-        if (controls.Player.Switch.triggered && MainCamOn)
+        if (!PauseMenu.pausePressed)
         {
-            playerCam.gameObject.SetActive(false);
-            freeCam.gameObject.SetActive(true);
-            MainCamOn = false;
-        }
-        else if (controls.Player.Switch.triggered && !MainCamOn)
-        {
-            playerCam.gameObject.SetActive(true);
-            freeCam.gameObject.SetActive(false);
-            surfaceBeingChanged = false;
-            MainCamOn = true;
+            if (controls.Player.Switch.triggered && MainCamOn)
+            {
+                playerCam.gameObject.SetActive(false);
+                freeCam.gameObject.SetActive(true);
+                MainCamOn = false;
+            }
+            else if (controls.Player.Switch.triggered && !MainCamOn)
+            {
+                playerCam.gameObject.SetActive(true);
+                freeCam.gameObject.SetActive(false);
+                surfaceBeingChanged = false;
+                MainCamOn = true;
+            }
         }
     }
 
@@ -434,6 +446,16 @@ public class PlayerMovement4 : MonoBehaviour
             ui.SetActive(false);
         }
 
+    }
+
+    public void AdjustWeight(float addedWeight)
+    {
+        weight = addedWeight;
+    }
+
+    public void AdjustTrucks(float truckLooseness)
+    {
+        maxTurnAngle = truckLooseness;
     }
 
     private void OnEnable()

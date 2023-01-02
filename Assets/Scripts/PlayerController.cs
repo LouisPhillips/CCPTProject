@@ -81,6 +81,14 @@ public class @PlayerController : IInputActionCollection, IDisposable
                     ""expectedControlType"": ""Button"",
                     ""processors"": """",
                     ""interactions"": ""Tap""
+                },
+                {
+                    ""name"": ""Pause"",
+                    ""type"": ""Button"",
+                    ""id"": ""3469b4fc-64e4-4200-a0e2-23e9ac2fcb84"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": ""Tap""
                 }
             ],
             ""bindings"": [
@@ -171,6 +179,17 @@ public class @PlayerController : IInputActionCollection, IDisposable
                     ""action"": ""Ollie"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""36fdf1f8-fa64-4e31-90ef-6c6be9c14199"",
+                    ""path"": ""<Gamepad>/start"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Pause"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
                 }
             ]
         }
@@ -187,6 +206,7 @@ public class @PlayerController : IInputActionCollection, IDisposable
         m_Player_GoLeft = m_Player.FindAction("GoLeft", throwIfNotFound: true);
         m_Player_GoRight = m_Player.FindAction("GoRight", throwIfNotFound: true);
         m_Player_Ollie = m_Player.FindAction("Ollie", throwIfNotFound: true);
+        m_Player_Pause = m_Player.FindAction("Pause", throwIfNotFound: true);
     }
 
     public void Dispose()
@@ -244,6 +264,7 @@ public class @PlayerController : IInputActionCollection, IDisposable
     private readonly InputAction m_Player_GoLeft;
     private readonly InputAction m_Player_GoRight;
     private readonly InputAction m_Player_Ollie;
+    private readonly InputAction m_Player_Pause;
     public struct PlayerActions
     {
         private @PlayerController m_Wrapper;
@@ -256,6 +277,7 @@ public class @PlayerController : IInputActionCollection, IDisposable
         public InputAction @GoLeft => m_Wrapper.m_Player_GoLeft;
         public InputAction @GoRight => m_Wrapper.m_Player_GoRight;
         public InputAction @Ollie => m_Wrapper.m_Player_Ollie;
+        public InputAction @Pause => m_Wrapper.m_Player_Pause;
         public InputActionMap Get() { return m_Wrapper.m_Player; }
         public void Enable() { Get().Enable(); }
         public void Disable() { Get().Disable(); }
@@ -289,6 +311,9 @@ public class @PlayerController : IInputActionCollection, IDisposable
                 @Ollie.started -= m_Wrapper.m_PlayerActionsCallbackInterface.OnOllie;
                 @Ollie.performed -= m_Wrapper.m_PlayerActionsCallbackInterface.OnOllie;
                 @Ollie.canceled -= m_Wrapper.m_PlayerActionsCallbackInterface.OnOllie;
+                @Pause.started -= m_Wrapper.m_PlayerActionsCallbackInterface.OnPause;
+                @Pause.performed -= m_Wrapper.m_PlayerActionsCallbackInterface.OnPause;
+                @Pause.canceled -= m_Wrapper.m_PlayerActionsCallbackInterface.OnPause;
             }
             m_Wrapper.m_PlayerActionsCallbackInterface = instance;
             if (instance != null)
@@ -317,6 +342,9 @@ public class @PlayerController : IInputActionCollection, IDisposable
                 @Ollie.started += instance.OnOllie;
                 @Ollie.performed += instance.OnOllie;
                 @Ollie.canceled += instance.OnOllie;
+                @Pause.started += instance.OnPause;
+                @Pause.performed += instance.OnPause;
+                @Pause.canceled += instance.OnPause;
             }
         }
     }
@@ -331,5 +359,6 @@ public class @PlayerController : IInputActionCollection, IDisposable
         void OnGoLeft(InputAction.CallbackContext context);
         void OnGoRight(InputAction.CallbackContext context);
         void OnOllie(InputAction.CallbackContext context);
+        void OnPause(InputAction.CallbackContext context);
     }
 }
