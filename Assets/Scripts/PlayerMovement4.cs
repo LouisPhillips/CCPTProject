@@ -9,6 +9,7 @@ public class PlayerMovement4 : MonoBehaviour
 {
     private PlayerController controls;
     private Vector2 movement;
+    private Vector2 manualRotation;
     private Vector2 camMovement;
     private Vector2 camLook;
 
@@ -71,6 +72,11 @@ public class PlayerMovement4 : MonoBehaviour
 
     private float weight = 0;
 
+    public Vector3 centreOfMass;
+
+    private bool controllerDeactivated = false;
+
+    public float manualTilt = -0.35f;
     void Awake()
     {
         controls = new PlayerController();
@@ -100,7 +106,7 @@ public class PlayerMovement4 : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (MainCamOn)
+        if (MainCamOn && !controllerDeactivated)
         {
             Movement();
             Turning();
@@ -109,6 +115,7 @@ public class PlayerMovement4 : MonoBehaviour
             Breaking();
             FallOver();
             Ollie();
+            Manual();
             ui.SetActive(false);
         }
     }
@@ -126,8 +133,6 @@ public class PlayerMovement4 : MonoBehaviour
     {
         controls.Player.Push.performed += context => push = true;
 
-        rb.velocity = rb.velocity / weight;
-
         if (currentAcceleration > 0)
         {
             currentAcceleration -= deaccelerationRate;
@@ -137,7 +142,7 @@ public class PlayerMovement4 : MonoBehaviour
         {
             currentAcceleration = maxAcceleration;
         }
-            
+
         if (push)
         {
 
@@ -165,11 +170,6 @@ public class PlayerMovement4 : MonoBehaviour
         backLeft.motorTorque = currentAcceleration;
         backRight.motorTorque = currentAcceleration;
 
-        frontLeft.steerAngle = currentTurnAngle;
-        frontRight.steerAngle = currentTurnAngle;
-        backLeft.steerAngle = -currentTurnAngle;
-        backRight.steerAngle = -currentTurnAngle;
-
         frontLeft.brakeTorque = currentBreakforce;
         frontRight.brakeTorque = currentBreakforce;
         backLeft.brakeTorque = currentBreakforce;
@@ -182,8 +182,11 @@ public class PlayerMovement4 : MonoBehaviour
         // \/\/\/\/ this causing steering snap
         currentTurnAngle = maxTurnAngle * movement.x;
 
-     
-       
+        frontLeft.steerAngle = currentTurnAngle;
+        frontRight.steerAngle = currentTurnAngle;
+        backLeft.steerAngle = -currentTurnAngle;
+        backRight.steerAngle = -currentTurnAngle;
+
         WheelFrictionCurve frontLeftSidewaysStiffness = frontLeft.sidewaysFriction;
         WheelFrictionCurve frontRightSidewaysStiffness = frontRight.sidewaysFriction;
         WheelFrictionCurve backLeftSidewaysStiffness = backLeft.sidewaysFriction;
@@ -209,6 +212,7 @@ public class PlayerMovement4 : MonoBehaviour
 
             backLeftSidewaysStiffness.extremumSlip = 0.8f;
             backRightSidewaysStiffness.extremumSlip = 0.8f;*/
+
         }
 
         frontLeft.sidewaysFriction = frontLeftSidewaysStiffness;
@@ -217,6 +221,44 @@ public class PlayerMovement4 : MonoBehaviour
         backRight.sidewaysFriction = backRightSidewaysStiffness;
     }
 
+    void Manual()
+    {
+        controls.Player.Manual.performed += context => manualRotation = context.ReadValue<Vector2>();
+
+        rb.centerOfMass = centreOfMass;
+
+        centreOfMass = new Vector3(centreOfMass.x, centreOfMass.y, manualRotation.y);
+
+        // lock Y and Z or restrict them to very little in order to allow manual, then when not manualling unlock them
+
+        // turn slip values to none so it goes straight? Only when speed is above moving value, so when idle or very slow you can pivot around centre
+        if (getSpeed >= 0.5f)
+        {
+            if (centreOfMass.z <= -0.2f || centreOfMass.z >= 0.2f)
+            {
+                rb.constraints = RigidbodyConstraints.FreezeRotationY | RigidbodyConstraints.FreezeRotationZ;
+            }
+            else if (centreOfMass.z > -0.2f || centreOfMass.z < 0.2f)
+            {
+                rb.constraints = RigidbodyConstraints.None;
+            }
+        }
+
+
+        Debug.Log(centreOfMass.z);
+        if (centreOfMass.z < -0.34)
+        {
+            centreOfMass = new Vector3(centreOfMass.x, centreOfMass.y, -0.34f);
+            if (getSpeed < 0.5f)
+            {
+                transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles + new Vector3(0f, movement.x * 90 * Time.deltaTime, 0f));
+            }
+        }
+        if (centreOfMass.z > 0.34f)
+        {
+            centreOfMass = new Vector3(centreOfMass.x, centreOfMass.y, 0.34f);
+        }
+    }
     void Crash()
     {
         getSpeed = rb.velocity.magnitude;
@@ -224,6 +266,7 @@ public class PlayerMovement4 : MonoBehaviour
         {
             // player flys off, controls disabled, respawn imminent 
             ragdoll.Die();
+            controllerDeactivated = true;
         }
 
         if (respawning)
@@ -252,6 +295,8 @@ public class PlayerMovement4 : MonoBehaviour
 
             respawning = false;
             respawnDelay = 0f;
+
+            controllerDeactivated = false;
         }
     }
 
@@ -450,7 +495,7 @@ public class PlayerMovement4 : MonoBehaviour
 
     public void AdjustWeight(float addedWeight)
     {
-        weight = addedWeight;
+        rb.drag = addedWeight;
     }
 
     public void AdjustTrucks(float truckLooseness)
@@ -466,5 +511,11 @@ public class PlayerMovement4 : MonoBehaviour
     private void OnDisable()
     {
         controls.Disable();
+    }
+
+    private void OnDrawGizmos()
+    {
+        Gizmos.color = Color.red;
+        Gizmos.DrawSphere(transform.position + transform.rotation * centreOfMass, 0.05f);
     }
 }
