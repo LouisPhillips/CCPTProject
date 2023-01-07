@@ -25,26 +25,23 @@ public class Ragdoll : MonoBehaviour
     {
         ToggleRagdoll(true);
         transform.parent = null;
-
-        foreach(Rigidbody rb in ragdollBodies)
+        skateboard.GetComponent<PlayerMovement4>().respawning = true;
+        foreach (Rigidbody rb in ragdollBodies)
         {
-            skateboard.GetComponent<PlayerMovement4>().respawning = true;
             rb.AddExplosionForce(1 * skateboard.GetComponent<PlayerMovement4>().getSpeed, forcePoint.position, 5f, 0f, ForceMode.Impulse);
         }
-
-        //add explosion force based on speed
     }
 
     public void ToggleRagdoll(bool state)
     {
         animator.enabled = !state;
 
-        foreach(Rigidbody rb in ragdollBodies)
+        foreach (Rigidbody rb in ragdollBodies)
         {
             rb.isKinematic = !state;
         }
 
-        foreach(Collider collider in ragdollColliders)
+        foreach (Collider collider in ragdollColliders)
         {
             collider.enabled = state;
         }

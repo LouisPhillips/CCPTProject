@@ -106,16 +106,19 @@ public class PlayerMovement4 : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (MainCamOn && !controllerDeactivated)
+        if (MainCamOn)
         {
-            Movement();
-            Turning();
+            if (!controllerDeactivated)
+            {
+                Movement();
+                Turning();
+                SurfaceDetection();
+                Breaking();
+                FallOver();
+                Ollie();
+                Manual();
+            }
             Crash();
-            SurfaceDetection();
-            Breaking();
-            FallOver();
-            Ollie();
-            Manual();
             ui.SetActive(false);
         }
     }
@@ -244,8 +247,6 @@ public class PlayerMovement4 : MonoBehaviour
             }
         }
 
-
-        Debug.Log(centreOfMass.z);
         if (centreOfMass.z < -0.34)
         {
             centreOfMass = new Vector3(centreOfMass.x, centreOfMass.y, -0.34f);
@@ -262,7 +263,7 @@ public class PlayerMovement4 : MonoBehaviour
     void Crash()
     {
         getSpeed = rb.velocity.magnitude;
-        if (getSpeed > 1.5 && Physics.Raycast(new Vector3(transform.position.x, transform.position.y + 0.15f, transform.position.z), transform.forward, out crash, 0.7f))
+        if (getSpeed > 1.5 && /*Physics.BoxCast(new Vector3(transform.position.x, transform.position.y + 0.15f, transform.position.z) + transform.forward, transform.localScale / 20, transform.forward, out crash, transform.rotation, 0.8f)*/Physics.Raycast(new Vector3(transform.position.x, transform.position.y + 0.15f, transform.position.z), transform.forward, out crash, 0.7f))
         {
             // player flys off, controls disabled, respawn imminent 
             ragdoll.Die();
@@ -284,6 +285,7 @@ public class PlayerMovement4 : MonoBehaviour
         respawnDelay += Time.deltaTime;
         if (respawnDelay > respawnMax)
         {
+            Debug.Log("respawning  :  " + respawnDelay);
             transform.position = respawnPoint.transform.position;
             transform.rotation = respawnPoint.transform.rotation;
 
@@ -322,11 +324,6 @@ public class PlayerMovement4 : MonoBehaviour
                 frontRightForwardStiffness.stiffness = 1f;
                 backLeftForwardStiffness.stiffness = 1f;
                 backRightForwardStiffness.stiffness = 1f;
-
-                if (rb.velocity.magnitude > 3f)
-                {
-                    ragdoll.Die();
-                }
             }
             else if (surfaceCheck.transform.tag == "Layer/Concrete")
             {
@@ -339,8 +336,8 @@ public class PlayerMovement4 : MonoBehaviour
             }
             else if (surfaceCheck.transform.tag == "Layer/Dirt")
             {
-                deaccelerationRate = 0.75f;
-                rb.velocity = rb.velocity / 1.05f;
+                deaccelerationRate = 0.5f;
+                rb.velocity = rb.velocity / 1.02f;
                 frontLeftForwardStiffness.stiffness = 1f;
                 frontRightForwardStiffness.stiffness = 1f;
                 backLeftForwardStiffness.stiffness = 2f;
@@ -372,12 +369,12 @@ public class PlayerMovement4 : MonoBehaviour
 
     void Ollie()
     {
-        Debug.Log(riding);
-        if (ollieDelay > 0.01f)
-        {
 
+        if (ollieDelay < 0.01f)
+        {
+            controls.Player.Ollie.performed += context => olliePressed = true;
         }
-        controls.Player.Ollie.performed += context => olliePressed = true;
+
 
         if (olliePressed && ollie)
         {
@@ -517,5 +514,6 @@ public class PlayerMovement4 : MonoBehaviour
     {
         Gizmos.color = Color.red;
         Gizmos.DrawSphere(transform.position + transform.rotation * centreOfMass, 0.05f);
+        Gizmos.DrawWireCube(new Vector3(transform.position.x, transform.position.y + 0.15f, transform.position.z) + transform.forward * 0.8f, transform.localScale / 20);
     }
 }

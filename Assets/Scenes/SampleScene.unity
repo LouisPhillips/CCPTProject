@@ -2691,7 +2691,7 @@ MonoBehaviour:
     ModeOverride: 0
     LensShift: {x: 0, y: 0}
     GateFit: 2
-    m_SensorSize: {x: 1.5325325, y: 1}
+    m_SensorSize: {x: 1.53, y: 1}
   m_Transitions:
     m_BlendHint: 0
     m_InheritPosition: 0
@@ -8740,7 +8740,7 @@ MonoBehaviour:
   frontLeft: {fileID: 1078147654}
   backRight: {fileID: 2140572771}
   backLeft: {fileID: 891799240}
-  pushForce: 100
+  pushForce: 500
   breakingForce: 300
   maxTurnAngle: 12.5
   maxAcceleration: 175
@@ -8757,6 +8757,7 @@ MonoBehaviour:
   playerCam: {fileID: 563322998}
   freeCam: {fileID: 1292068911}
   centreOfMass: {x: 0, y: 0.26, z: 0}
+  manualTilt: -0.35
 --- !u!114 &1761870400
 MonoBehaviour:
   m_ObjectHideFlags: 0
