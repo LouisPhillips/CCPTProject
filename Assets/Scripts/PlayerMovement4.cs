@@ -51,6 +51,8 @@ public class PlayerMovement4 : MonoBehaviour
     public static bool riding = true;
     public static bool ollie = true;
     public float ollieHeight = 4f;
+    private bool grounded;
+    public LayerMask ground;
 
     public float freeCamTurnSpeed = 15f;
 
@@ -68,7 +70,7 @@ public class PlayerMovement4 : MonoBehaviour
 
     public CinemachineVirtualCamera playerCam;
     public CinemachineVirtualCamera freeCam;
-    public static bool MainCamOn = true;
+    public static bool mainCamOn = true;
 
     private float weight = 0;
 
@@ -77,6 +79,10 @@ public class PlayerMovement4 : MonoBehaviour
     private bool controllerDeactivated = false;
 
     public float manualTilt = -0.35f;
+
+    private float[] wheelSpeedChanges = {1.075f, 1f, 1.02f};
+
+    public Dropdown dropdown;
     void Awake()
     {
         controls = new PlayerController();
@@ -106,25 +112,27 @@ public class PlayerMovement4 : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (MainCamOn)
+        if (mainCamOn)
         {
+            Crash();
+            FallOver();
             if (!controllerDeactivated)
             {
                 Movement();
                 Turning();
                 SurfaceDetection();
                 Breaking();
-                FallOver();
                 Ollie();
                 Manual();
             }
-            Crash();
+
+
             ui.SetActive(false);
         }
     }
     private void Update()
     {
-        if (!MainCamOn)
+        if (!mainCamOn)
         {
             CameraControls();
         }
@@ -148,7 +156,6 @@ public class PlayerMovement4 : MonoBehaviour
 
         if (push)
         {
-
             pushDelay += Time.deltaTime;
             if (pushDelay > pushMax)
             {
@@ -195,29 +202,6 @@ public class PlayerMovement4 : MonoBehaviour
         WheelFrictionCurve backLeftSidewaysStiffness = backLeft.sidewaysFriction;
         WheelFrictionCurve backRightSidewaysStiffness = backRight.sidewaysFriction;
 
-        if (currentAcceleration > 100)
-        {
-            /*frontLeftSidewaysStiffness.stiffness = 0.5f;
-            frontRightSidewaysStiffness.stiffness = 0.5f;
-            backLeftSidewaysStiffness.stiffness = 1;
-            backRightSidewaysStiffness.stiffness = 1;*/
-
-            /*backLeftSidewaysStiffness.extremumSlip = 1f;
-            backRightSidewaysStiffness.extremumSlip = 1f;*/
-        }
-
-        else if (currentAcceleration > 0 && currentAcceleration <= 100)
-        {
-            /*frontLeftSidewaysStiffness.stiffness = 1;
-            frontRightSidewaysStiffness.stiffness = 1;
-            backLeftSidewaysStiffness.stiffness = 2;
-            backRightSidewaysStiffness.stiffness = 2;
-
-            backLeftSidewaysStiffness.extremumSlip = 0.8f;
-            backRightSidewaysStiffness.extremumSlip = 0.8f;*/
-
-        }
-
         frontLeft.sidewaysFriction = frontLeftSidewaysStiffness;
         frontRight.sidewaysFriction = frontRightSidewaysStiffness;
         backLeft.sidewaysFriction = backLeftSidewaysStiffness;
@@ -258,6 +242,10 @@ public class PlayerMovement4 : MonoBehaviour
         if (centreOfMass.z > 0.34f)
         {
             centreOfMass = new Vector3(centreOfMass.x, centreOfMass.y, 0.34f);
+            if (getSpeed < 0.5f)
+            {
+                transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles + new Vector3(0f, movement.x * 90 * Time.deltaTime, 0f));
+            }
         }
     }
     void Crash()
@@ -266,8 +254,11 @@ public class PlayerMovement4 : MonoBehaviour
         if (getSpeed > 1.5 && /*Physics.BoxCast(new Vector3(transform.position.x, transform.position.y + 0.15f, transform.position.z) + transform.forward, transform.localScale / 20, transform.forward, out crash, transform.rotation, 0.8f)*/Physics.Raycast(new Vector3(transform.position.x, transform.position.y + 0.15f, transform.position.z), transform.forward, out crash, 0.7f))
         {
             // player flys off, controls disabled, respawn imminent 
-            ragdoll.Die();
+            currentAcceleration = 0f;
+            rb.velocity = new Vector3(0, 0, 0);
             controllerDeactivated = true;
+            Debug.Log("Crashed");
+            ragdoll.Die();
         }
 
         if (respawning)
@@ -275,9 +266,6 @@ public class PlayerMovement4 : MonoBehaviour
             Respawn();
         }
         // get normalized speed and if crash and average speed is > just a bump allow for a 'crash'
-
-
-
     }
 
     void Respawn()
@@ -319,7 +307,7 @@ public class PlayerMovement4 : MonoBehaviour
             if (surfaceCheck.transform.tag == "Layer/Grass")
             {
                 deaccelerationRate = 5f;
-                rb.velocity = rb.velocity / 1.075f;
+                rb.velocity = rb.velocity / wheelSpeedChanges[0];
                 frontLeftForwardStiffness.stiffness = 1f;
                 frontRightForwardStiffness.stiffness = 1f;
                 backLeftForwardStiffness.stiffness = 1f;
@@ -328,7 +316,7 @@ public class PlayerMovement4 : MonoBehaviour
             else if (surfaceCheck.transform.tag == "Layer/Concrete")
             {
                 deaccelerationRate = 0.25f;
-                rb.velocity = rb.velocity / 1f;
+                rb.velocity = rb.velocity / wheelSpeedChanges[1];
                 frontLeftForwardStiffness.stiffness = 1f;
                 frontRightForwardStiffness.stiffness = 1f;
                 backLeftForwardStiffness.stiffness = 2f;
@@ -337,7 +325,7 @@ public class PlayerMovement4 : MonoBehaviour
             else if (surfaceCheck.transform.tag == "Layer/Dirt")
             {
                 deaccelerationRate = 0.5f;
-                rb.velocity = rb.velocity / 1.02f;
+                rb.velocity = rb.velocity / wheelSpeedChanges[2];
                 frontLeftForwardStiffness.stiffness = 1f;
                 frontRightForwardStiffness.stiffness = 1f;
                 backLeftForwardStiffness.stiffness = 2f;
@@ -363,6 +351,9 @@ public class PlayerMovement4 : MonoBehaviour
     {
         if (transform.rotation.x > 0.30 || transform.rotation.z > 0.30 || transform.rotation.x < -0.30 || transform.rotation.z < -0.30)
         {
+            Debug.Log("Fell");
+            currentAcceleration = 0f;
+            controllerDeactivated = true;
             ragdoll.Die();
         }
     }
@@ -370,11 +361,10 @@ public class PlayerMovement4 : MonoBehaviour
     void Ollie()
     {
 
-        if (ollieDelay < 0.01f)
+        if (ollieDelay <= 0f)
         {
             controls.Player.Ollie.performed += context => olliePressed = true;
         }
-
 
         if (olliePressed && ollie)
         {
@@ -394,18 +384,18 @@ public class PlayerMovement4 : MonoBehaviour
     {
         if (!PauseMenu.pausePressed)
         {
-            if (controls.Player.Switch.triggered && MainCamOn)
+            if (controls.Player.Switch.triggered && mainCamOn)
             {
                 playerCam.gameObject.SetActive(false);
                 freeCam.gameObject.SetActive(true);
-                MainCamOn = false;
+                mainCamOn = false;
             }
-            else if (controls.Player.Switch.triggered && !MainCamOn)
+            else if (controls.Player.Switch.triggered && !mainCamOn)
             {
                 playerCam.gameObject.SetActive(true);
                 freeCam.gameObject.SetActive(false);
                 surfaceBeingChanged = false;
-                MainCamOn = true;
+                mainCamOn = true;
             }
         }
     }
@@ -483,7 +473,7 @@ public class PlayerMovement4 : MonoBehaviour
             surfaceIndex = 2;
         }
 
-        if (MainCamOn)
+        if (mainCamOn)
         {
             ui.SetActive(false);
         }
@@ -500,6 +490,25 @@ public class PlayerMovement4 : MonoBehaviour
         maxTurnAngle = truckLooseness;
     }
 
+    public void ChangeWheelType()
+    {
+        if (dropdown.value == 0)
+        {
+            wheelSpeedChanges[0] = 1.075f;
+            wheelSpeedChanges[1] = 1f;
+            wheelSpeedChanges[2] = 1.02f;
+
+            ollieHeight = 4f;
+        }
+        else
+        {
+            wheelSpeedChanges[0] = 1.035f;
+            wheelSpeedChanges[1] = 1f;
+            wheelSpeedChanges[2] = 1.01f;
+
+            ollieHeight = 2.5f;
+        }
+    }
     private void OnEnable()
     {
         controls.Enable();

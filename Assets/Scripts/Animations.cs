@@ -5,15 +5,17 @@ using UnityEngine;
 public class Animations : MonoBehaviour
 {
     private GameObject skateboard;
+    private GameObject skateboardMotions;
     void Start()
     {
         skateboard = GameObject.FindGameObjectWithTag("Skateboard");
+        skateboardMotions = GameObject.FindGameObjectWithTag("SkateboardMotions");
     }
 
     // Update is called once per frame
     void Update()
     {
-        if (skateboard.GetComponent<PlayerMovement4>().push && PlayerMovement4.MainCamOn)
+        if (skateboard.GetComponent<PlayerMovement4>().push && PlayerMovement4.mainCamOn)
         {
             GetComponent<Animator>().Play("Pushing");
         }
@@ -26,6 +28,7 @@ public class Animations : MonoBehaviour
             if (skateboard.GetComponent<PlayerMovement4>().olliePressed)
             {
                 GetComponent<Animator>().Play("Ollie");
+                skateboardMotions.GetComponent<Animator>().Play("Ollie");
             }
         }
         else
