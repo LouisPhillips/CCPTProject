@@ -4,86 +4,99 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using Cinemachine;
 using UnityEngine.UI;
-
+using UnityEngine.EventSystems;
 public class PlayerMovement4 : MonoBehaviour
 {
     private PlayerController controls;
+    private Rigidbody rb;
+    private GameObject character;
+    private Ragdoll ragdoll;
+
     private Vector2 movement;
     private Vector2 manualRotation;
     private Vector2 camMovement;
     private Vector2 camLook;
 
-    private GameObject character;
-
     [Header("Wheels")]
-    [SerializeField] public WheelCollider frontRight;
-    [SerializeField] public WheelCollider frontLeft;
-    [SerializeField] public WheelCollider backRight;
-    [SerializeField] public WheelCollider backLeft;
+    public WheelCollider frontRight;
+    public WheelCollider frontLeft;
+    public WheelCollider backRight;
+    public WheelCollider backLeft;
 
     [Header("Speed Attributes")]
     public float pushForce = 75f;
     public float breakingForce = 300f;
-    public float maxTurnAngle = 12.5f;
     public float maxAcceleration = 225f;
-
     public float deaccelerationRate = 0.1f;
-
-    public float currentAcceleration = 0f;
+    private float currentAcceleration = 0f;
     private float currentBreakforce = 0f;
-    public float currentTurnAngle = 0f;
-
     public float getSpeed;
-    [HideInInspector] public bool push;
-
     private float pushDelay = 0f;
     private float pushMax = 0.5f;
-
-    private Rigidbody rb;
-
-    private Ragdoll ragdoll;
-
+    [HideInInspector] public bool push;
     private bool breaking;
 
+    [Header("Turn Attributes")]
+    [SerializeField] private float turnValue;
+    [SerializeField] private float maxTurnAngle = 12.5f;
+    [SerializeField] private float currentTurnAngle = 0f;
+    [SerializeField] private float steeringWeight = 2f;
+
+    [Header("Ollie")]
     public bool olliePressed;
     private float ollieDelay = 0f;
     private float OllieDelayMax = 0.55f;
     public static bool riding = true;
     public static bool ollie = true;
     public float ollieHeight = 4f;
-    private bool grounded;
     public LayerMask ground;
 
+    [Header("Camera")]
+    public CinemachineVirtualCamera playerCam;
+    public CinemachineVirtualCamera freeCam;
     public float freeCamTurnSpeed = 15f;
-
     public static bool surfaceBeingChanged = false;
-    RaycastHit objectCheck;
+    private RaycastHit objectCheck;
     private GameObject ui;
     public int surfaceIndex = 0;
+    public static bool mainCamOn = true;
 
     [Header("Respawn")]
     private GameObject respawnPoint;
     private float respawnDelay = 0f;
     private float respawnMax = 5f;
     [HideInInspector] public bool respawning = false;
-    RaycastHit crash;
-
-    public CinemachineVirtualCamera playerCam;
-    public CinemachineVirtualCamera freeCam;
-    public static bool mainCamOn = true;
-
-    private float weight = 0;
-
-    public Vector3 centreOfMass;
-
+    private RaycastHit crash;
     private bool controllerDeactivated = false;
 
+    [Header("Manual")]
+    public Vector3 centreOfMass;
     public float manualTilt = -0.35f;
 
-    private float[] wheelSpeedChanges = {1.075f, 1f, 1.02f};
+    [Header("Surface Changes")]
+    private float[] wheelSpeedChanges = { 1.075f, 1f, 1.02f };
+    private float customDeaccelerationWeight = 0f;
+    private GameObject slider;
+    private EventSystem eventSystem;
 
+    [Header("Settings")]
     public Dropdown dropdown;
-    void Awake()
+
+    [Header("Gravity")]
+    [SerializeField] private float gravity = 9.81f;
+    [SerializeField] private float gravityFallCurrent = -100f;
+    [SerializeField] private float gravityFallMin = -100f;
+    [SerializeField] private float gravityFallMax = -500f;
+    [SerializeField] [Range(-5f, -35f)] float gravityIncrement = -20f;
+    [SerializeField] private float gravityIncrementTime = 0.05f;
+    [SerializeField] private float fallTimer = 0f;
+
+    [SerializeField] private bool grounded = true;
+    [Range(0f, 1.8f)] float radius = 0.9f;
+    [Range(-0.95f, 1.05f)] float distance = 0.05f;
+    private RaycastHit groundHit = new RaycastHit();
+
+    private void Awake()
     {
         controls = new PlayerController();
 
@@ -104,14 +117,19 @@ public class PlayerMovement4 : MonoBehaviour
 
         freeCam.gameObject.SetActive(false);
 
+        slider = GameObject.FindGameObjectWithTag("Surface/Slider");
+        slider.SetActive(false);
         ui = GameObject.FindGameObjectWithTag("Surface/Changer");
         ui.SetActive(false);
 
         character = GameObject.FindGameObjectWithTag("Player");
+
+        eventSystem = GameObject.FindGameObjectWithTag("Events").GetComponent<EventSystem>();
     }
 
-    void FixedUpdate()
+    private void FixedUpdate()
     {
+
         if (mainCamOn)
         {
             Crash();
@@ -124,6 +142,9 @@ public class PlayerMovement4 : MonoBehaviour
                 Breaking();
                 Ollie();
                 Manual();
+                /*grounded = GroundCheck();
+                movement.y = Gravity();
+                movement = ApplyMass();*/
             }
 
 
@@ -140,7 +161,7 @@ public class PlayerMovement4 : MonoBehaviour
         Debug.DrawRay(new Vector3(transform.position.x, transform.position.y + 0.05f, transform.position.z), transform.forward, Color.cyan, 0.63f);
     }
 
-    void Movement()
+    private void Movement()
     {
         controls.Player.Push.performed += context => push = true;
 
@@ -154,6 +175,8 @@ public class PlayerMovement4 : MonoBehaviour
             currentAcceleration = maxAcceleration;
         }
 
+
+
         if (push)
         {
             pushDelay += Time.deltaTime;
@@ -164,6 +187,16 @@ public class PlayerMovement4 : MonoBehaviour
                 push = false;
             }
         }
+        /*else
+        {
+            Debug.Log("STOP");
+            if (getSpeed < 0.1f)
+            {
+                currentAcceleration = 0;
+            }
+        }*/
+
+
 
         if (controls.Player.Break.triggered)
         {
@@ -174,23 +207,89 @@ public class PlayerMovement4 : MonoBehaviour
             currentBreakforce = 0f;
         }
 
+        if (!breaking)
+        {
+            frontLeft.motorTorque = currentAcceleration;
+            frontRight.motorTorque = currentAcceleration;
+            backLeft.motorTorque = currentAcceleration;
+            backRight.motorTorque = currentAcceleration;
 
-        frontLeft.motorTorque = currentAcceleration;
-        frontRight.motorTorque = currentAcceleration;
-        backLeft.motorTorque = currentAcceleration;
-        backRight.motorTorque = currentAcceleration;
-
-        frontLeft.brakeTorque = currentBreakforce;
-        frontRight.brakeTorque = currentBreakforce;
-        backLeft.brakeTorque = currentBreakforce;
-        backRight.brakeTorque = currentBreakforce;
+            frontLeft.brakeTorque = currentBreakforce;
+            frontRight.brakeTorque = currentBreakforce;
+            backLeft.brakeTorque = currentBreakforce;
+            backRight.brakeTorque = currentBreakforce;
+        }
     }
 
-    void Turning()
+    /*private bool GroundCheck()
+    {
+        return Physics.Raycast(rb.position, Vector3.down, 0.5f, ground);
+    }
+
+    private float Gravity()
+    {
+        if (grounded)
+        {
+            gravity = 0f;
+            gravityFallCurrent = gravityFallMin;
+        }
+        else
+        {
+            fallTimer -= Time.fixedDeltaTime;
+            if(fallTimer < 0)
+            {
+                if (gravityFallCurrent >= gravityFallMax)
+                {
+                    gravityFallCurrent -= gravityIncrement;
+                }
+                fallTimer = gravityIncrementTime;
+                gravity = gravityFallCurrent;
+            }
+        }
+        return gravity;
+    }
+
+    private Vector2 ApplyMass()
+    {
+        Vector2 playerMovement = (new Vector2(movement.x * 30f * rb.mass, movement.y * rb.mass));
+        return playerMovement;
+    }*/
+    private void Turning()
     {
         controls.Player.Turning.performed += context => movement = context.ReadValue<Vector2>();
+
+        if (movement.x >= 0)
+        {
+            turnValue += 0.05f;
+            if (turnValue > movement.x)
+            {
+                turnValue = movement.x;
+            }
+        }
+        else
+        {
+            turnValue -= 0.05f;
+            if (turnValue < movement.x)
+            {
+                turnValue = movement.x;
+            }
+        }
+
+        if (movement.x == 0)
+        {
+            Debug.Log("i am at 0");
+            // needs to lerp back to 0
+            turnValue = Mathf.Lerp(turnValue, 0, 0.00005f);
+        }
+
         // \/\/\/\/ this causing steering snap
-        currentTurnAngle = maxTurnAngle * movement.x;
+        // good value is 0.005f
+        if (!breaking)
+        {
+            maxTurnAngle = Mathf.Lerp(25f, 15f, currentAcceleration * 0.005f);
+            currentTurnAngle = maxTurnAngle * turnValue;
+        }
+
 
         frontLeft.steerAngle = currentTurnAngle;
         frontRight.steerAngle = currentTurnAngle;
@@ -208,7 +307,7 @@ public class PlayerMovement4 : MonoBehaviour
         backRight.sidewaysFriction = backRightSidewaysStiffness;
     }
 
-    void Manual()
+    private void Manual()
     {
         controls.Player.Manual.performed += context => manualRotation = context.ReadValue<Vector2>();
 
@@ -248,7 +347,7 @@ public class PlayerMovement4 : MonoBehaviour
             }
         }
     }
-    void Crash()
+    private void Crash()
     {
         getSpeed = rb.velocity.magnitude;
         if (getSpeed > 1.5 && /*Physics.BoxCast(new Vector3(transform.position.x, transform.position.y + 0.15f, transform.position.z) + transform.forward, transform.localScale / 20, transform.forward, out crash, transform.rotation, 0.8f)*/Physics.Raycast(new Vector3(transform.position.x, transform.position.y + 0.15f, transform.position.z), transform.forward, out crash, 0.7f))
@@ -257,8 +356,7 @@ public class PlayerMovement4 : MonoBehaviour
             currentAcceleration = 0f;
             rb.velocity = new Vector3(0, 0, 0);
             controllerDeactivated = true;
-            Debug.Log("Crashed");
-            ragdoll.Die();
+            ragdoll.Fall();
         }
 
         if (respawning)
@@ -268,12 +366,11 @@ public class PlayerMovement4 : MonoBehaviour
         // get normalized speed and if crash and average speed is > just a bump allow for a 'crash'
     }
 
-    void Respawn()
+    private void Respawn()
     {
         respawnDelay += Time.deltaTime;
         if (respawnDelay > respawnMax)
         {
-            Debug.Log("respawning  :  " + respawnDelay);
             transform.position = respawnPoint.transform.position;
             transform.rotation = respawnPoint.transform.rotation;
 
@@ -290,7 +387,7 @@ public class PlayerMovement4 : MonoBehaviour
         }
     }
 
-    void SurfaceDetection()
+    private void SurfaceDetection()
     {
         //if grounded
 
@@ -331,6 +428,15 @@ public class PlayerMovement4 : MonoBehaviour
                 backLeftForwardStiffness.stiffness = 2f;
                 backRightForwardStiffness.stiffness = 2f;
             }
+            else if (surfaceCheck.transform.tag == "Layer/Custom")
+            {
+                deaccelerationRate = customDeaccelerationWeight;
+                rb.velocity = rb.velocity / (1 + (customDeaccelerationWeight / 100));
+                frontLeftForwardStiffness.stiffness = 1f;
+                frontRightForwardStiffness.stiffness = 1f;
+                backLeftForwardStiffness.stiffness = 2f;
+                backRightForwardStiffness.stiffness = 2f;
+            }
         }
         frontLeft.forwardFriction = frontLeftForwardStiffness;
         frontRight.forwardFriction = frontRightForwardStiffness;
@@ -338,27 +444,36 @@ public class PlayerMovement4 : MonoBehaviour
         backRight.forwardFriction = backRightForwardStiffness;
     }
 
-    void Breaking()
+    private void Breaking()
     {
         if (breaking)
         {
             rb.velocity = rb.velocity / 1.01f;
             currentAcceleration = 0;
         }
+
+        if (breaking && getSpeed < 0.25f)
+        {
+            currentAcceleration = 100;
+            frontLeft.motorTorque = -currentAcceleration;
+            frontRight.motorTorque = -currentAcceleration;
+            backLeft.motorTorque = -currentAcceleration;
+            backRight.motorTorque = -currentAcceleration;
+        }
     }
 
-    void FallOver()
+    private void FallOver()
     {
         if (transform.rotation.x > 0.30 || transform.rotation.z > 0.30 || transform.rotation.x < -0.30 || transform.rotation.z < -0.30)
         {
             Debug.Log("Fell");
             currentAcceleration = 0f;
             controllerDeactivated = true;
-            ragdoll.Die();
+            ragdoll.Fall();
         }
     }
 
-    void Ollie()
+    private void Ollie()
     {
 
         if (ollieDelay <= 0f)
@@ -380,7 +495,7 @@ public class PlayerMovement4 : MonoBehaviour
 
     }
 
-    void CameraSwitch()
+    private void CameraSwitch()
     {
         if (!PauseMenu.pausePressed)
         {
@@ -400,10 +515,14 @@ public class PlayerMovement4 : MonoBehaviour
         }
     }
 
-    void CameraControls()
+    private void CameraControls()
     {
         controls.Player.Turning.performed += context => camMovement = context.ReadValue<Vector2>();
         controls.Player.Look.performed += context => camLook = context.ReadValue<Vector2>();
+
+
+        eventSystem.firstSelectedGameObject = GameObject.FindGameObjectWithTag("Surface/Button");
+
 
         Vector3 cameraDirection = (camMovement.y * transform.forward) + (camMovement.x * transform.right);
         //freeCam.transform.position += cameraDirection * 10 * Time.deltaTime;
@@ -415,7 +534,7 @@ public class PlayerMovement4 : MonoBehaviour
 
         if (Physics.Raycast(freeCam.transform.position, freeCam.transform.forward, out objectCheck, Mathf.Infinity) && !surfaceBeingChanged)
         {
-            if (objectCheck.transform.tag == "Layer/Concrete" || objectCheck.transform.tag == "Layer/Grass" || objectCheck.transform.tag == "Layer/Dirt")
+            if (objectCheck.transform.tag == "Layer/Concrete" || objectCheck.transform.tag == "Layer/Grass" || objectCheck.transform.tag == "Layer/Dirt" || objectCheck.transform.tag == "Layer/Custom")
             {
                 if (controls.Player.Push.triggered)
                 {
@@ -429,11 +548,10 @@ public class PlayerMovement4 : MonoBehaviour
         }
     }
 
-    void ChangeSurface()
+    private void ChangeSurface()
     {
         ui.SetActive(true);
         GameObject text = GameObject.FindGameObjectWithTag("Surface/Text");
-
         if (surfaceIndex == 0)
         {
             text.GetComponent<Text>().text = "Concrete";
@@ -464,14 +582,30 @@ public class PlayerMovement4 : MonoBehaviour
                 objectCheck.transform.GetComponent<SurfaceChange>().state = SurfaceChange.enumState.Grass;
             }
         }
-        if (surfaceIndex > 2)
+
+        if (surfaceIndex == 3)
+        {
+            text.GetComponent<Text>().text = "Custom";
+            slider.SetActive(true);
+            if (controls.Player.Push.triggered)
+            {
+                objectCheck.transform.tag = "Layer/Custom";
+                objectCheck.transform.GetComponent<SurfaceChange>().state = SurfaceChange.enumState.Custom;
+            }
+        }
+        else
+        {
+            slider.SetActive(false);
+        }
+        if (surfaceIndex > 3)
         {
             surfaceIndex = 0;
         }
         if (surfaceIndex < 0)
         {
-            surfaceIndex = 2;
+            surfaceIndex = 3;
         }
+
 
         if (mainCamOn)
         {
@@ -488,6 +622,11 @@ public class PlayerMovement4 : MonoBehaviour
     public void AdjustTrucks(float truckLooseness)
     {
         maxTurnAngle = truckLooseness;
+    }
+
+    public void CustomFriction(float friction)
+    {
+        customDeaccelerationWeight = friction;
     }
 
     public void ChangeWheelType()

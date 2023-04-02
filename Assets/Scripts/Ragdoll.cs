@@ -21,7 +21,7 @@ public class Ragdoll : MonoBehaviour
         ToggleRagdoll(false);
     }
 
-    public void Die()
+    public void Fall()
     {
         ToggleRagdoll(true);
         transform.parent = null;

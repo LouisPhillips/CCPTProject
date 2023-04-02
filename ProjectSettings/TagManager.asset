@@ -15,14 +15,18 @@ TagManager:
   - Surface/Text
   - Surface/Changer
   - SkateboardMotions
+  - Layer/Custom
+  - Surface/Slider
+  - Events
+  - Surface/Button
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - Ground
   - Water
   - UI
-  - 
+  - PostProccessing
   - 
   - 
   - 

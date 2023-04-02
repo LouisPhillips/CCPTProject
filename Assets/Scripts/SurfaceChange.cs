@@ -5,7 +5,7 @@ using UnityEngine;
 public class SurfaceChange : MonoBehaviour
 {
     private GameObject player;
-    public enum enumState { Concrete, Grass, Dirt };
+    public enum enumState { Concrete, Grass, Dirt , Custom};
     public enumState state;
 
     bool onSurface;
@@ -13,6 +13,7 @@ public class SurfaceChange : MonoBehaviour
     public Material concreteMaterial;
     public Material grassMaterial;
     public Material dirtMaterial;
+    public Material customMaterial;
 
 
     void Start()
@@ -40,6 +41,11 @@ public class SurfaceChange : MonoBehaviour
                 {
                     transform.GetComponent<MeshRenderer>().material = grassMaterial;
                     return;
+                }
+            case enumState.Custom:
+                {
+                    transform.GetComponent<MeshRenderer>().material = customMaterial;
+                        return;
                 }
         }
 
