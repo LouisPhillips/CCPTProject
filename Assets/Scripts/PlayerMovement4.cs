@@ -7,10 +7,13 @@ using UnityEngine.UI;
 using UnityEngine.EventSystems;
 public class PlayerMovement4 : MonoBehaviour
 {
+    [Header("Components")]
     private PlayerController controls;
     private Rigidbody rb;
     private GameObject character;
+    public GameObject characterModel;
     private Ragdoll ragdoll;
+    public GameObject sphere;
 
     private Vector2 movement;
     private Vector2 manualRotation;
@@ -28,13 +31,14 @@ public class PlayerMovement4 : MonoBehaviour
     public float breakingForce = 300f;
     public float maxAcceleration = 225f;
     public float deaccelerationRate = 0.1f;
-    private float currentAcceleration = 0f;
-    private float currentBreakforce = 0f;
     public float getSpeed;
+
+    [HideInInspector] public bool push;
     private float pushDelay = 0f;
     private float pushMax = 0.5f;
-    [HideInInspector] public bool push;
     private bool breaking;
+    private float currentAcceleration = 0f;
+    private float currentBreakforce = 0f;
 
     [Header("Turn Attributes")]
     [SerializeField] private float turnValue;
@@ -44,22 +48,27 @@ public class PlayerMovement4 : MonoBehaviour
 
     [Header("Ollie")]
     public bool olliePressed;
-    private float ollieDelay = 0f;
-    private float OllieDelayMax = 0.55f;
     public static bool riding = true;
     public static bool ollie = true;
     public float ollieHeight = 4f;
     public LayerMask ground;
+
+    public float liftOffRotation;
+
+    private bool canOllie = true;
+    private float ollieDelay = 0f;
+    private float OllieDelayMax = 0.55f;
 
     [Header("Camera")]
     public CinemachineVirtualCamera playerCam;
     public CinemachineVirtualCamera freeCam;
     public float freeCamTurnSpeed = 15f;
     public static bool surfaceBeingChanged = false;
-    private RaycastHit objectCheck;
-    private GameObject ui;
     public int surfaceIndex = 0;
     public static bool mainCamOn = true;
+
+    private RaycastHit objectCheck;
+    private GameObject ui;
 
     [Header("Respawn")]
     private GameObject respawnPoint;
@@ -114,6 +123,7 @@ public class PlayerMovement4 : MonoBehaviour
         ragdoll = GetComponentInChildren<Ragdoll>();
 
         //playerCam = GetComponentInChildren<CinemachineVirtualCamera>();
+        character = GameObject.FindGameObjectWithTag("Player");
 
         freeCam.gameObject.SetActive(false);
 
@@ -121,8 +131,6 @@ public class PlayerMovement4 : MonoBehaviour
         slider.SetActive(false);
         ui = GameObject.FindGameObjectWithTag("Surface/Changer");
         ui.SetActive(false);
-
-        character = GameObject.FindGameObjectWithTag("Player");
 
         eventSystem = GameObject.FindGameObjectWithTag("Events").GetComponent<EventSystem>();
     }
@@ -277,7 +285,6 @@ public class PlayerMovement4 : MonoBehaviour
 
         if (movement.x == 0)
         {
-            Debug.Log("i am at 0");
             // needs to lerp back to 0
             turnValue = Mathf.Lerp(turnValue, 0, 0.00005f);
         }
@@ -481,18 +488,60 @@ public class PlayerMovement4 : MonoBehaviour
             controls.Player.Ollie.performed += context => olliePressed = true;
         }
 
-        if (olliePressed && ollie)
+        grounded = Physics.Raycast(transform.position, Vector3.down, 0.2f, ground);
+
+        if (olliePressed && grounded && canOllie)
         {
+            liftOffRotation = transform.eulerAngles.y;
             ollieDelay += Time.deltaTime;
             if (ollieDelay > OllieDelayMax)
             {
                 rb.AddForce(transform.up * 5000 * ollieHeight, ForceMode.Impulse);
                 olliePressed = false;
                 ollieDelay = 0f;
+                Invoke(nameof(ResetOllie), 0.5f);
             }
+        }
+        if (grounded)
+        {
 
+            //playerCam.m_LookAt = characterModel.transform;
+            //playerCam.m_Follow = characterModel.transform;
+            if (transform.eulerAngles.y > liftOffRotation + 140 && transform.eulerAngles.y < liftOffRotation + 220)
+            {
+                Debug.Log("Flips direction");
+                //transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles.x, transform.rotation.eulerAngles.y * 2, transform.rotation.eulerAngles.z);
+            }
+        }
+        else
+        {
+            //playerCam.m_LookAt = null;
+            //playerCam.m_Follow = null;
+
+
+
+            
+            transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles + new Vector3(0f, movement.x * 360 * Time.deltaTime, 0f));
+            
+            
+            /*RaycastHit hit;
+            if (Physics.Raycast(transform.position, Vector3.down, out hit, 5f, ground))
+            {
+                if (Vector3.Distance(hit.transform.position, transform.position) > 1.05f)
+                {
+                    Debug.Log("Distant from the ground   " + Vector3.Distance(hit.transform.position, transform.position));
+                    transform.rotation = Quaternion.FromToRotation(transform.up, hit.normal) * transform.rotation;
+                }
+
+            }*/
         }
 
+        // needs to only do this is distance between point is greater than value
+    }
+
+    private void ResetOllie()
+    {
+        canOllie = true;
     }
 
     private void CameraSwitch()
