@@ -58,14 +58,17 @@ public class PlayerMovement4 : MonoBehaviour
     private bool canOllie = true;
     private float ollieDelay = 0f;
     private float OllieDelayMax = 0.55f;
+    private bool inAir = false;
 
     [Header("Camera")]
     public CinemachineVirtualCamera playerCam;
     public CinemachineVirtualCamera freeCam;
+    public CinemachineVirtualCamera ollieCam;
     public float freeCamTurnSpeed = 15f;
     public static bool surfaceBeingChanged = false;
     public int surfaceIndex = 0;
     public static bool mainCamOn = true;
+    public float lastGroundedY;
 
     private RaycastHit objectCheck;
     private GameObject ui;
@@ -150,6 +153,7 @@ public class PlayerMovement4 : MonoBehaviour
                 Breaking();
                 Ollie();
                 Manual();
+
                 /*grounded = GroundCheck();
                 movement.y = Gravity();
                 movement = ApplyMass();*/
@@ -165,6 +169,7 @@ public class PlayerMovement4 : MonoBehaviour
         {
             CameraControls();
         }
+        RespawnButtonPressed();
         CameraSwitch();
         Debug.DrawRay(new Vector3(transform.position.x, transform.position.y + 0.05f, transform.position.z), transform.forward, Color.cyan, 0.63f);
     }
@@ -265,6 +270,8 @@ public class PlayerMovement4 : MonoBehaviour
     private void Turning()
     {
         controls.Player.Turning.performed += context => movement = context.ReadValue<Vector2>();
+        rb.AddTorque(-rb.angularVelocity * 2);
+        rb.angularDrag = 1 + (getSpeed / 2);
 
         if (movement.x >= 0)
         {
@@ -308,10 +315,16 @@ public class PlayerMovement4 : MonoBehaviour
         WheelFrictionCurve backLeftSidewaysStiffness = backLeft.sidewaysFriction;
         WheelFrictionCurve backRightSidewaysStiffness = backRight.sidewaysFriction;
 
+        //reverse this
+        frontLeftSidewaysStiffness.stiffness = Mathf.Lerp(5, 1, getSpeed / 3);
+        frontRightSidewaysStiffness.stiffness = Mathf.Lerp(5, 1, getSpeed / 3);
+
         frontLeft.sidewaysFriction = frontLeftSidewaysStiffness;
         frontRight.sidewaysFriction = frontRightSidewaysStiffness;
         backLeft.sidewaysFriction = backLeftSidewaysStiffness;
         backRight.sidewaysFriction = backRightSidewaysStiffness;
+
+
     }
 
     private void Manual()
@@ -357,7 +370,8 @@ public class PlayerMovement4 : MonoBehaviour
     private void Crash()
     {
         getSpeed = rb.velocity.magnitude;
-        if (getSpeed > 1.5 && /*Physics.BoxCast(new Vector3(transform.position.x, transform.position.y + 0.15f, transform.position.z) + transform.forward, transform.localScale / 20, transform.forward, out crash, transform.rotation, 0.8f)*/Physics.Raycast(new Vector3(transform.position.x, transform.position.y + 0.15f, transform.position.z), transform.forward, out crash, 0.7f))
+        //bool crashed = Physics.BoxCast(new Vector3(transform.position.x, transform.position.y + 0.15f, transform.position.z) + transform.forward * 0.7f, (new Vector3(transform.position.x, transform.position.y + 0.15f, transform.position.z) + transform.forward * 0.7f) / 2, new Vector3(0.3f, 0.2f, 0.05f));
+        if (getSpeed > 1.5 && Physics.Raycast(new Vector3(transform.position.x, transform.position.y + 0.15f, transform.position.z), transform.forward, out crash, 0.7f))
         {
             // player flys off, controls disabled, respawn imminent 
             currentAcceleration = 0f;
@@ -376,7 +390,7 @@ public class PlayerMovement4 : MonoBehaviour
     private void Respawn()
     {
         respawnDelay += Time.deltaTime;
-        if (respawnDelay > respawnMax)
+        if (respawnDelay >= respawnMax)
         {
             transform.position = respawnPoint.transform.position;
             transform.rotation = respawnPoint.transform.rotation;
@@ -473,7 +487,6 @@ public class PlayerMovement4 : MonoBehaviour
     {
         if (transform.rotation.x > 0.30 || transform.rotation.z > 0.30 || transform.rotation.x < -0.30 || transform.rotation.z < -0.30)
         {
-            Debug.Log("Fell");
             currentAcceleration = 0f;
             controllerDeactivated = true;
             ragdoll.Fall();
@@ -499,44 +512,46 @@ public class PlayerMovement4 : MonoBehaviour
                 rb.AddForce(transform.up * 5000 * ollieHeight, ForceMode.Impulse);
                 olliePressed = false;
                 ollieDelay = 0f;
+                inAir = true;
                 Invoke(nameof(ResetOllie), 0.5f);
             }
         }
         if (grounded)
         {
-
+            lastGroundedY = transform.eulerAngles.y;
+            ollieCam.gameObject.SetActive(false);
+            playerCam.gameObject.SetActive(true);
             //playerCam.m_LookAt = characterModel.transform;
             //playerCam.m_Follow = characterModel.transform;
-            if (transform.eulerAngles.y > liftOffRotation + 140 && transform.eulerAngles.y < liftOffRotation + 220)
+            //playerCam.GetCinemachineComponent<CinemachineTransposer>().m_BindingMode = CinemachineTransposer.BindingMode.LockToTargetWithWorldUp;
+            if ((transform.eulerAngles.y > liftOffRotation + 140 && transform.eulerAngles.y < liftOffRotation + 220 || transform.eulerAngles.y < liftOffRotation + -140 && transform.eulerAngles.y > liftOffRotation + -220) && inAir)
             {
                 Debug.Log("Flips direction");
-                //transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles.x, transform.rotation.eulerAngles.y * 2, transform.rotation.eulerAngles.z);
+                transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles.x, liftOffRotation * 2, transform.rotation.eulerAngles.z);
+                liftOffRotation = 10000;
+                inAir = false;
             }
         }
         else
         {
+
             //playerCam.m_LookAt = null;
             //playerCam.m_Follow = null;
+            //playerCam.GetCinemachineComponent<CinemachineTransposer>().m_BindingMode = CinemachineTransposer.BindingMode.SimpleFollowWithWorldUp;
 
-
-
-            
-            transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles + new Vector3(0f, movement.x * 360 * Time.deltaTime, 0f));
-            
-            
-            /*RaycastHit hit;
-            if (Physics.Raycast(transform.position, Vector3.down, out hit, 5f, ground))
+            RaycastHit hit = new RaycastHit();
+            if (Physics.Raycast(transform.position, Vector3.down, out hit))
             {
-                if (Vector3.Distance(hit.transform.position, transform.position) > 1.05f)
+                var distanceToGround = hit.distance;
+                if (distanceToGround < 1)
                 {
-                    Debug.Log("Distant from the ground   " + Vector3.Distance(hit.transform.position, transform.position));
-                    transform.rotation = Quaternion.FromToRotation(transform.up, hit.normal) * transform.rotation;
+                    ollieCam.gameObject.SetActive(true);
+                    playerCam.gameObject.SetActive(false);
+                    transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles + new Vector3(0f, movement.x * 300 * Time.deltaTime, 0f));
                 }
 
-            }*/
+            }
         }
-
-        // needs to only do this is distance between point is greater than value
     }
 
     private void ResetOllie()
@@ -546,7 +561,7 @@ public class PlayerMovement4 : MonoBehaviour
 
     private void CameraSwitch()
     {
-        if (!PauseMenu.pausePressed)
+        if (!PauseMenu.pausePressed && grounded)
         {
             if (controls.Player.Switch.triggered && mainCamOn)
             {
@@ -579,7 +594,16 @@ public class PlayerMovement4 : MonoBehaviour
         freeCam.transform.position += freeCam.transform.forward * freeCamTurnSpeed * camMovement.y * Time.deltaTime;
         freeCam.transform.position += freeCam.transform.right * freeCamTurnSpeed * camMovement.x * Time.deltaTime;
 
-        freeCam.transform.rotation *= Quaternion.Euler(camLook.y * Time.deltaTime * -100, camLook.x * Time.deltaTime * 100, -freeCam.transform.eulerAngles.z);
+        freeCam.transform.eulerAngles += new Vector3(camLook.y * Time.deltaTime * -100, camLook.x * Time.deltaTime * 100, -freeCam.transform.eulerAngles.z);
+        /*if (freeCam.transform.eulerAngles.x < -79)
+        {
+            freeCam.transform.eulerAngles = new Vector3(-79, freeCam.transform.eulerAngles.y, freeCam.transform.eulerAngles.z);
+        }*/
+        /*if (freeCam.transform.eulerAngles.x < -89)
+        {
+            freeCam.transform.eulerAngles = new Vector3(-89, freeCam.transform.eulerAngles.y, freeCam.transform.eulerAngles.z);
+        }*/
+        //camLook.y = Mathf.Clamp(camLook.y, -70f, 70f);
 
         if (Physics.Raycast(freeCam.transform.position, freeCam.transform.forward, out objectCheck, Mathf.Infinity) && !surfaceBeingChanged)
         {
@@ -711,6 +735,15 @@ public class PlayerMovement4 : MonoBehaviour
     {
         Gizmos.color = Color.red;
         Gizmos.DrawSphere(transform.position + transform.rotation * centreOfMass, 0.05f);
-        Gizmos.DrawWireCube(new Vector3(transform.position.x, transform.position.y + 0.15f, transform.position.z) + transform.forward * 0.8f, transform.localScale / 20);
+        Gizmos.DrawWireCube(new Vector3(transform.position.x, transform.position.y + 0.15f, transform.position.z) + transform.forward * 0.7f, new Vector3(0.3f, 0.2f, 0.05f));
+    }
+
+    private void RespawnButtonPressed()
+    {
+        if (controls.Player.Respawn.triggered)
+        {
+            respawning = true;
+            respawnDelay = respawnMax;
+        }
     }
 }

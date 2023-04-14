@@ -97,6 +97,14 @@ public class @PlayerController : IInputActionCollection, IDisposable
                     ""expectedControlType"": ""Vector2"",
                     ""processors"": """",
                     ""interactions"": """"
+                },
+                {
+                    ""name"": ""Respawn"",
+                    ""type"": ""Button"",
+                    ""id"": ""cf814185-b925-4a3c-b475-f5e207cc1dc2"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """"
                 }
             ],
             ""bindings"": [
@@ -209,6 +217,17 @@ public class @PlayerController : IInputActionCollection, IDisposable
                     ""action"": ""Manual"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""d1f2ad54-c839-4968-bf07-7fccc3adccb5"",
+                    ""path"": ""<Gamepad>/buttonNorth"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Respawn"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
                 }
             ]
         }
@@ -227,6 +246,7 @@ public class @PlayerController : IInputActionCollection, IDisposable
         m_Player_Ollie = m_Player.FindAction("Ollie", throwIfNotFound: true);
         m_Player_Pause = m_Player.FindAction("Pause", throwIfNotFound: true);
         m_Player_Manual = m_Player.FindAction("Manual", throwIfNotFound: true);
+        m_Player_Respawn = m_Player.FindAction("Respawn", throwIfNotFound: true);
     }
 
     public void Dispose()
@@ -286,6 +306,7 @@ public class @PlayerController : IInputActionCollection, IDisposable
     private readonly InputAction m_Player_Ollie;
     private readonly InputAction m_Player_Pause;
     private readonly InputAction m_Player_Manual;
+    private readonly InputAction m_Player_Respawn;
     public struct PlayerActions
     {
         private @PlayerController m_Wrapper;
@@ -300,6 +321,7 @@ public class @PlayerController : IInputActionCollection, IDisposable
         public InputAction @Ollie => m_Wrapper.m_Player_Ollie;
         public InputAction @Pause => m_Wrapper.m_Player_Pause;
         public InputAction @Manual => m_Wrapper.m_Player_Manual;
+        public InputAction @Respawn => m_Wrapper.m_Player_Respawn;
         public InputActionMap Get() { return m_Wrapper.m_Player; }
         public void Enable() { Get().Enable(); }
         public void Disable() { Get().Disable(); }
@@ -339,6 +361,9 @@ public class @PlayerController : IInputActionCollection, IDisposable
                 @Manual.started -= m_Wrapper.m_PlayerActionsCallbackInterface.OnManual;
                 @Manual.performed -= m_Wrapper.m_PlayerActionsCallbackInterface.OnManual;
                 @Manual.canceled -= m_Wrapper.m_PlayerActionsCallbackInterface.OnManual;
+                @Respawn.started -= m_Wrapper.m_PlayerActionsCallbackInterface.OnRespawn;
+                @Respawn.performed -= m_Wrapper.m_PlayerActionsCallbackInterface.OnRespawn;
+                @Respawn.canceled -= m_Wrapper.m_PlayerActionsCallbackInterface.OnRespawn;
             }
             m_Wrapper.m_PlayerActionsCallbackInterface = instance;
             if (instance != null)
@@ -373,6 +398,9 @@ public class @PlayerController : IInputActionCollection, IDisposable
                 @Manual.started += instance.OnManual;
                 @Manual.performed += instance.OnManual;
                 @Manual.canceled += instance.OnManual;
+                @Respawn.started += instance.OnRespawn;
+                @Respawn.performed += instance.OnRespawn;
+                @Respawn.canceled += instance.OnRespawn;
             }
         }
     }
@@ -389,5 +417,6 @@ public class @PlayerController : IInputActionCollection, IDisposable
         void OnOllie(InputAction.CallbackContext context);
         void OnPause(InputAction.CallbackContext context);
         void OnManual(InputAction.CallbackContext context);
+        void OnRespawn(InputAction.CallbackContext context);
     }
 }
