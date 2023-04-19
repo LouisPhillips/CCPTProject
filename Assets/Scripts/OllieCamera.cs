@@ -6,13 +6,17 @@ public class OllieCamera : MonoBehaviour
 {
     public Transform target;
 
-    public float xOffset = 0;
-    public float yOffset = 2;
-    public float zOffset = -2;
+    public float yOffset = 2.64f;
+    
     void Update()
     {
-        //transform.LookAt(target);
-        transform.position = new Vector3(target.transform.position.x, target.transform.position.y, target.transform.position.z)  + new Vector3(xOffset, yOffset, zOffset);
-        transform.eulerAngles = new Vector3(target.transform.eulerAngles.x, target.GetComponentInParent<PlayerMovement4>().lastGroundedY, target.transform.eulerAngles.z);
+
+        /*transform.position += new Vector3(target.GetComponentInParent<PlayerMovement4>().rb.velocity.x * Time.deltaTime,
+            -1.75f * Time.deltaTime, 
+            target.GetComponentInParent<PlayerMovement4>().rb.velocity.z  * Time.deltaTime);*/
+        //transform.eulerAngles = new Vector3(target.transform.eulerAngles.x, target.GetComponentInParent<PlayerMovement4>().lastGroundedY, target.transform.eulerAngles.z);
+
+        transform.position = new Vector3(transform.position.x + target.GetComponentInParent<PlayerMovement4>().rb.velocity.x * Time.deltaTime, target.transform.position.y + yOffset,
+            transform.position.z + target.GetComponentInParent<PlayerMovement4>().rb.velocity.z * Time.deltaTime);
     }
 }

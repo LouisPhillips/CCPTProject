@@ -9,7 +9,7 @@ public class PlayerMovement4 : MonoBehaviour
 {
     [Header("Components")]
     private PlayerController controls;
-    private Rigidbody rb;
+    public Rigidbody rb;
     private GameObject character;
     public GameObject characterModel;
     private Ragdoll ragdoll;
@@ -34,6 +34,7 @@ public class PlayerMovement4 : MonoBehaviour
     public float getSpeed;
 
     [HideInInspector] public bool push;
+    private bool pushed;
     private float pushDelay = 0f;
     private float pushMax = 0.5f;
     private bool breaking;
@@ -52,13 +53,15 @@ public class PlayerMovement4 : MonoBehaviour
     public static bool ollie = true;
     public float ollieHeight = 4f;
     public LayerMask ground;
-
+    public Vector3 lastForwardValue;
     public float liftOffRotation;
 
     private bool canOllie = true;
     private float ollieDelay = 0f;
     private float OllieDelayMax = 0.55f;
     private bool inAir = false;
+    private float dampYTimeMax = 1;
+    private float dampYTime = 0;
 
     [Header("Camera")]
     public CinemachineVirtualCamera playerCam;
@@ -147,11 +150,12 @@ public class PlayerMovement4 : MonoBehaviour
             FallOver();
             if (!controllerDeactivated)
             {
+                Ollie();
                 Movement();
                 Turning();
                 SurfaceDetection();
                 Breaking();
-                Ollie();
+
                 Manual();
 
                 /*grounded = GroundCheck();
@@ -176,7 +180,16 @@ public class PlayerMovement4 : MonoBehaviour
 
     private void Movement()
     {
-        controls.Player.Push.performed += context => push = true;
+        if (grounded)
+        {
+            controls.Player.Push.performed += context => push = true;
+        }
+        else
+        {
+            controls.Player.Push.performed += context => push = false;
+        }
+        Debug.Log(push + "   " + grounded);
+
 
         if (currentAcceleration > 0)
         {
@@ -467,13 +480,13 @@ public class PlayerMovement4 : MonoBehaviour
 
     private void Breaking()
     {
-        if (breaking)
+        if (breaking && getSpeed > 0.25f)
         {
             rb.velocity = rb.velocity / 1.01f;
             currentAcceleration = 0;
         }
 
-        if (breaking && getSpeed < 0.25f)
+        else if (breaking && getSpeed < 0.25f)
         {
             currentAcceleration = 100;
             frontLeft.motorTorque = -currentAcceleration;
@@ -503,9 +516,10 @@ public class PlayerMovement4 : MonoBehaviour
 
         grounded = Physics.Raycast(transform.position, Vector3.down, 0.2f, ground);
 
-        if (olliePressed && grounded && canOllie)
+        if (olliePressed && grounded && canOllie && !push)
         {
             liftOffRotation = transform.eulerAngles.y;
+            lastForwardValue = Vector3.forward;
             ollieDelay += Time.deltaTime;
             if (ollieDelay > OllieDelayMax)
             {
@@ -518,33 +532,62 @@ public class PlayerMovement4 : MonoBehaviour
         }
         if (grounded)
         {
+            ollieCam.transform.parent = transform;
+            ollieCam.transform.localPosition = new Vector3(-0.0218416024f, 0.556589425f, -0.461597949f);
             lastGroundedY = transform.eulerAngles.y;
             ollieCam.gameObject.SetActive(false);
             playerCam.gameObject.SetActive(true);
-            //playerCam.m_LookAt = characterModel.transform;
-            //playerCam.m_Follow = characterModel.transform;
-            //playerCam.GetCinemachineComponent<CinemachineTransposer>().m_BindingMode = CinemachineTransposer.BindingMode.LockToTargetWithWorldUp;
-            if ((transform.eulerAngles.y > liftOffRotation + 140 && transform.eulerAngles.y < liftOffRotation + 220 || transform.eulerAngles.y < liftOffRotation + -140 && transform.eulerAngles.y > liftOffRotation + -220) && inAir)
+            playerCam.m_LookAt = characterModel.transform;
+            playerCam.m_Follow = characterModel.transform;
+
+            if (playerCam.GetCinemachineComponent<CinemachineTransposer>().m_YDamping != 1.5f)
             {
-                Debug.Log("Flips direction");
-                transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles.x, liftOffRotation * 2, transform.rotation.eulerAngles.z);
-                liftOffRotation = 10000;
-                inAir = false;
+                dampYTime += Time.deltaTime;
+                if (dampYTime > dampYTimeMax)
+                {
+                    playerCam.GetCinemachineComponent<CinemachineTransposer>().m_YDamping = 1.5f;
+                    dampYTime = 0;
+                }
+
+            }
+            if (((transform.eulerAngles.y > liftOffRotation + 140 && transform.eulerAngles.y < liftOffRotation + 220) || (transform.eulerAngles.y < liftOffRotation + -140 && transform.eulerAngles.y > liftOffRotation + -220)) && inAir)
+            {
+                RaycastHit hit = new RaycastHit();
+                if (Physics.Raycast(transform.position, Vector3.down, out hit))
+                {
+                    if (hit.transform.eulerAngles.x == 0)
+                    {
+                        Debug.Log("Flips direction");
+                        transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles.x, liftOffRotation, transform.rotation.eulerAngles.z);
+                        liftOffRotation = 10000;
+                        inAir = false;
+                    }
+                    else
+                    {
+                        liftOffRotation = 10000;
+                        inAir = false;
+                    }
+
+                }
+
             }
         }
         else
         {
 
-            //playerCam.m_LookAt = null;
-            //playerCam.m_Follow = null;
+            playerCam.m_LookAt = null;
+            playerCam.m_Follow = null;
+            playerCam.transform.position = ollieCam.transform.position;
+            playerCam.GetCinemachineComponent<CinemachineTransposer>().m_YDamping = 0;
             //playerCam.GetCinemachineComponent<CinemachineTransposer>().m_BindingMode = CinemachineTransposer.BindingMode.SimpleFollowWithWorldUp;
 
             RaycastHit hit = new RaycastHit();
             if (Physics.Raycast(transform.position, Vector3.down, out hit))
             {
                 var distanceToGround = hit.distance;
-                if (distanceToGround < 1)
+                if (distanceToGround < 1 && inAir)
                 {
+                    ollieCam.transform.parent = null;
                     ollieCam.gameObject.SetActive(true);
                     playerCam.gameObject.SetActive(false);
                     transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles + new Vector3(0f, movement.x * 300 * Time.deltaTime, 0f));
@@ -567,6 +610,7 @@ public class PlayerMovement4 : MonoBehaviour
             {
                 playerCam.gameObject.SetActive(false);
                 freeCam.gameObject.SetActive(true);
+                surfaceBeingChanged = true;
                 mainCamOn = false;
             }
             else if (controls.Player.Switch.triggered && !mainCamOn)
