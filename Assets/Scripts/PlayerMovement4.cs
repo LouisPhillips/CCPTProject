@@ -14,6 +14,7 @@ public class PlayerMovement4 : MonoBehaviour
     public GameObject characterModel;
     private Ragdoll ragdoll;
     public GameObject sphere;
+    public Transform skatedeck;
 
     private Vector2 movement;
     private Vector2 manualRotation;
@@ -55,13 +56,17 @@ public class PlayerMovement4 : MonoBehaviour
     public LayerMask ground;
     public Vector3 lastForwardValue;
     public float liftOffRotation;
+    public float previousLiftOffRotation;
 
     private bool canOllie = true;
     private float ollieDelay = 0f;
     private float OllieDelayMax = 0.55f;
     private bool inAir = false;
-    private float dampYTimeMax = 1;
-    private float dampYTime = 0;
+    private float dampYTimeMax = 1f;
+    private float dampYTime = 0f;
+    private bool flipped = true;
+    private float liftDelay = 0f;
+    private float liftTick = 1f;
 
     [Header("Camera")]
     public CinemachineVirtualCamera playerCam;
@@ -139,6 +144,8 @@ public class PlayerMovement4 : MonoBehaviour
         ui.SetActive(false);
 
         eventSystem = GameObject.FindGameObjectWithTag("Events").GetComponent<EventSystem>();
+
+        previousLiftOffRotation = liftOffRotation;
     }
 
     private void FixedUpdate()
@@ -155,12 +162,7 @@ public class PlayerMovement4 : MonoBehaviour
                 Turning();
                 SurfaceDetection();
                 Breaking();
-
                 Manual();
-
-                /*grounded = GroundCheck();
-                movement.y = Gravity();
-                movement = ApplyMass();*/
             }
 
 
@@ -180,7 +182,8 @@ public class PlayerMovement4 : MonoBehaviour
 
     private void Movement()
     {
-        if (grounded)
+        // if the player is grounded, they can push
+        if (grounded && !inAir && !olliePressed)
         {
             controls.Player.Push.performed += context => push = true;
         }
@@ -188,9 +191,8 @@ public class PlayerMovement4 : MonoBehaviour
         {
             controls.Player.Push.performed += context => push = false;
         }
-        Debug.Log(push + "   " + grounded);
 
-
+        // deaccelerate the player over time
         if (currentAcceleration > 0)
         {
             currentAcceleration -= deaccelerationRate;
@@ -202,7 +204,7 @@ public class PlayerMovement4 : MonoBehaviour
         }
 
 
-
+        // push delay
         if (push)
         {
             pushDelay += Time.deltaTime;
@@ -223,7 +225,7 @@ public class PlayerMovement4 : MonoBehaviour
         }*/
 
 
-
+        // set the breakforce based on if the break is being pressed
         if (controls.Player.Break.triggered)
         {
             currentBreakforce = breakingForce;
@@ -233,6 +235,7 @@ public class PlayerMovement4 : MonoBehaviour
             currentBreakforce = 0f;
         }
 
+        // sets wheel and break force to the corresponsing values
         if (!breaking)
         {
             frontLeft.motorTorque = currentAcceleration;
@@ -247,45 +250,14 @@ public class PlayerMovement4 : MonoBehaviour
         }
     }
 
-    /*private bool GroundCheck()
-    {
-        return Physics.Raycast(rb.position, Vector3.down, 0.5f, ground);
-    }
-
-    private float Gravity()
-    {
-        if (grounded)
-        {
-            gravity = 0f;
-            gravityFallCurrent = gravityFallMin;
-        }
-        else
-        {
-            fallTimer -= Time.fixedDeltaTime;
-            if(fallTimer < 0)
-            {
-                if (gravityFallCurrent >= gravityFallMax)
-                {
-                    gravityFallCurrent -= gravityIncrement;
-                }
-                fallTimer = gravityIncrementTime;
-                gravity = gravityFallCurrent;
-            }
-        }
-        return gravity;
-    }
-
-    private Vector2 ApplyMass()
-    {
-        Vector2 playerMovement = (new Vector2(movement.x * 30f * rb.mass, movement.y * rb.mass));
-        return playerMovement;
-    }*/
     private void Turning()
     {
         controls.Player.Turning.performed += context => movement = context.ReadValue<Vector2>();
+
         rb.AddTorque(-rb.angularVelocity * 2);
         rb.angularDrag = 1 + (getSpeed / 2);
 
+        // lerp x values to the point of the vector2.x
         if (movement.x >= 0)
         {
             turnValue += 0.05f;
@@ -303,14 +275,13 @@ public class PlayerMovement4 : MonoBehaviour
             }
         }
 
+        // sets steering back to 0 gradually
         if (movement.x == 0)
         {
-            // needs to lerp back to 0
             turnValue = Mathf.Lerp(turnValue, 0, 0.00005f);
         }
 
-        // \/\/\/\/ this causing steering snap
-        // good value is 0.005f
+        // sets the turning radius of the skateboard based on speed
         if (!breaking)
         {
             maxTurnAngle = Mathf.Lerp(25f, 15f, currentAcceleration * 0.005f);
@@ -328,7 +299,6 @@ public class PlayerMovement4 : MonoBehaviour
         WheelFrictionCurve backLeftSidewaysStiffness = backLeft.sidewaysFriction;
         WheelFrictionCurve backRightSidewaysStiffness = backRight.sidewaysFriction;
 
-        //reverse this
         frontLeftSidewaysStiffness.stiffness = Mathf.Lerp(5, 1, getSpeed / 3);
         frontRightSidewaysStiffness.stiffness = Mathf.Lerp(5, 1, getSpeed / 3);
 
@@ -337,7 +307,8 @@ public class PlayerMovement4 : MonoBehaviour
         backLeft.sidewaysFriction = backLeftSidewaysStiffness;
         backRight.sidewaysFriction = backRightSidewaysStiffness;
 
-
+        // rotates skatedeck based on where the user is turning to visualize turning
+        skatedeck.localEulerAngles = new Vector3(skatedeck.localEulerAngles.x, skatedeck.localEulerAngles.y, -movement.x * 10);
     }
 
     private void Manual()
@@ -348,9 +319,7 @@ public class PlayerMovement4 : MonoBehaviour
 
         centreOfMass = new Vector3(centreOfMass.x, centreOfMass.y, manualRotation.y);
 
-        // lock Y and Z or restrict them to very little in order to allow manual, then when not manualling unlock them
-
-        // turn slip values to none so it goes straight? Only when speed is above moving value, so when idle or very slow you can pivot around centre
+        // freezing the player while manualing
         if (getSpeed >= 0.5f)
         {
             if (centreOfMass.z <= -0.2f || centreOfMass.z >= 0.2f)
@@ -363,6 +332,7 @@ public class PlayerMovement4 : MonoBehaviour
             }
         }
 
+        // if the player manuals backwards
         if (centreOfMass.z < -0.34)
         {
             centreOfMass = new Vector3(centreOfMass.x, centreOfMass.y, -0.34f);
@@ -371,6 +341,7 @@ public class PlayerMovement4 : MonoBehaviour
                 transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles + new Vector3(0f, movement.x * 90 * Time.deltaTime, 0f));
             }
         }
+        // if the player manuals forward
         if (centreOfMass.z > 0.34f)
         {
             centreOfMass = new Vector3(centreOfMass.x, centreOfMass.y, 0.34f);
@@ -383,7 +354,8 @@ public class PlayerMovement4 : MonoBehaviour
     private void Crash()
     {
         getSpeed = rb.velocity.magnitude;
-        //bool crashed = Physics.BoxCast(new Vector3(transform.position.x, transform.position.y + 0.15f, transform.position.z) + transform.forward * 0.7f, (new Vector3(transform.position.x, transform.position.y + 0.15f, transform.position.z) + transform.forward * 0.7f) / 2, new Vector3(0.3f, 0.2f, 0.05f));
+
+        // only checks crash if over a certain speed, as going any slower would not be fast enough to trigger a crash
         if (getSpeed > 1.5 && Physics.Raycast(new Vector3(transform.position.x, transform.position.y + 0.15f, transform.position.z), transform.forward, out crash, 0.7f))
         {
             // player flys off, controls disabled, respawn imminent 
@@ -392,17 +364,17 @@ public class PlayerMovement4 : MonoBehaviour
             controllerDeactivated = true;
             ragdoll.Fall();
         }
-
+        // respawn the player
         if (respawning)
         {
             Respawn();
         }
-        // get normalized speed and if crash and average speed is > just a bump allow for a 'crash'
     }
 
     private void Respawn()
     {
         respawnDelay += Time.deltaTime;
+        // sets all the players values back to normal to restart gameplay
         if (respawnDelay >= respawnMax)
         {
             transform.position = respawnPoint.transform.position;
@@ -424,7 +396,7 @@ public class PlayerMovement4 : MonoBehaviour
     private void SurfaceDetection()
     {
         //if grounded
-
+        // setting up friction values for each surface
         WheelFrictionCurve frontLeftForwardStiffness = frontLeft.forwardFriction;
         WheelFrictionCurve frontRightForwardStiffness = frontRight.forwardFriction;
         WheelFrictionCurve backLeftForwardStiffness = backLeft.forwardFriction;
@@ -433,6 +405,7 @@ public class PlayerMovement4 : MonoBehaviour
         RaycastHit surfaceCheck;
 
         Debug.DrawRay(transform.position, Vector3.down, Color.red, 1f);
+        // check what material the player is on
         if (Physics.Raycast(transform.position, Vector3.down, out surfaceCheck, 1f))
         {
             if (surfaceCheck.transform.tag == "Layer/Grass")
@@ -480,12 +453,13 @@ public class PlayerMovement4 : MonoBehaviour
 
     private void Breaking()
     {
+        // if the player is moving and breaking
         if (breaking && getSpeed > 0.25f)
         {
             rb.velocity = rb.velocity / 1.01f;
             currentAcceleration = 0;
         }
-
+        // if the player is practically stopped, breaking will now reverse instead
         else if (breaking && getSpeed < 0.25f)
         {
             currentAcceleration = 100;
@@ -498,6 +472,7 @@ public class PlayerMovement4 : MonoBehaviour
 
     private void FallOver()
     {
+        // if the skateboarder rotates past a tipping point they will fall off
         if (transform.rotation.x > 0.30 || transform.rotation.z > 0.30 || transform.rotation.x < -0.30 || transform.rotation.z < -0.30)
         {
             currentAcceleration = 0f;
@@ -508,7 +483,7 @@ public class PlayerMovement4 : MonoBehaviour
 
     private void Ollie()
     {
-
+        // if can press ollie
         if (ollieDelay <= 0f)
         {
             controls.Player.Ollie.performed += context => olliePressed = true;
@@ -516,22 +491,28 @@ public class PlayerMovement4 : MonoBehaviour
 
         grounded = Physics.Raycast(transform.position, Vector3.down, 0.2f, ground);
 
+        // ollie
         if (olliePressed && grounded && canOllie && !push)
         {
             liftOffRotation = transform.eulerAngles.y;
+            previousLiftOffRotation = liftOffRotation;
             lastForwardValue = Vector3.forward;
             ollieDelay += Time.deltaTime;
+            // if the ollie animation has reached where the ollie should happen
             if (ollieDelay > OllieDelayMax)
             {
+                // add force upwards to the skateboard
                 rb.AddForce(transform.up * 5000 * ollieHeight, ForceMode.Impulse);
                 olliePressed = false;
                 ollieDelay = 0f;
                 inAir = true;
+                flipped = false;
                 Invoke(nameof(ResetOllie), 0.5f);
             }
         }
         if (grounded)
         {
+            // reset follow camera values
             ollieCam.transform.parent = transform;
             ollieCam.transform.localPosition = new Vector3(-0.0218416024f, 0.556589425f, -0.461597949f);
             lastGroundedY = transform.eulerAngles.y;
@@ -540,6 +521,7 @@ public class PlayerMovement4 : MonoBehaviour
             playerCam.m_LookAt = characterModel.transform;
             playerCam.m_Follow = characterModel.transform;
 
+            // resetting Y damping so that the camera switch back is smooth and not snappy
             if (playerCam.GetCinemachineComponent<CinemachineTransposer>().m_YDamping != 1.5f)
             {
                 dampYTime += Time.deltaTime;
@@ -548,49 +530,72 @@ public class PlayerMovement4 : MonoBehaviour
                     playerCam.GetCinemachineComponent<CinemachineTransposer>().m_YDamping = 1.5f;
                     dampYTime = 0;
                 }
-
             }
+            // if the player rotates their board in the air in order to ollie 180
             if (((transform.eulerAngles.y > liftOffRotation + 140 && transform.eulerAngles.y < liftOffRotation + 220) || (transform.eulerAngles.y < liftOffRotation + -140 && transform.eulerAngles.y > liftOffRotation + -220)) && inAir)
             {
                 RaycastHit hit = new RaycastHit();
                 if (Physics.Raycast(transform.position, Vector3.down, out hit))
                 {
-                    if (hit.transform.eulerAngles.x == 0)
+                    if (hit.transform.eulerAngles.x == 0 && currentAcceleration > 1)
                     {
-                        Debug.Log("Flips direction");
+                        // flips the player 180 degrees to return to normal direction
                         transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles.x, liftOffRotation, transform.rotation.eulerAngles.z);
                         liftOffRotation = 10000;
                         inAir = false;
+                        flipped = true;
                     }
                     else
                     {
                         liftOffRotation = 10000;
+                        flipped = true;
                         inAir = false;
                     }
-
                 }
-
+            }
+            // if the user ollied and didn't rotate to activate a ollie 180
+            liftDelay += Time.deltaTime;
+            if (liftDelay > liftTick)
+            {
+                if (inAir && !flipped && liftOffRotation == previousLiftOffRotation)
+                {
+                    liftOffRotation = 10000;
+                    flipped = true;
+                    inAir = false;
+                }
+                liftDelay = 0;
             }
         }
         else
         {
 
-            playerCam.m_LookAt = null;
-            playerCam.m_Follow = null;
-            playerCam.transform.position = ollieCam.transform.position;
-            playerCam.GetCinemachineComponent<CinemachineTransposer>().m_YDamping = 0;
-            //playerCam.GetCinemachineComponent<CinemachineTransposer>().m_BindingMode = CinemachineTransposer.BindingMode.SimpleFollowWithWorldUp;
+            // stopping the follow camera from tracking the player
+            if (inAir)
+            {
+                playerCam.m_LookAt = null;
+                playerCam.m_Follow = null;
+                playerCam.transform.position = ollieCam.transform.position;
+            }
+
 
             RaycastHit hit = new RaycastHit();
             if (Physics.Raycast(transform.position, Vector3.down, out hit))
             {
+                // check if the player is a considerable distance from the ground
                 var distanceToGround = hit.distance;
                 if (distanceToGround < 1 && inAir)
                 {
+                    // setting up ollie cam to follow the player without rotating the camera
                     ollieCam.transform.parent = null;
                     ollieCam.gameObject.SetActive(true);
                     playerCam.gameObject.SetActive(false);
                     transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles + new Vector3(0f, movement.x * 300 * Time.deltaTime, 0f));
+                }
+                
+                // if above certain height Y damping on camera will stop
+                if (distanceToGround < 1 && hit.transform.eulerAngles.x == 0)
+                {
+                    playerCam.GetCinemachineComponent<CinemachineTransposer>().m_YDamping = 0;
                 }
 
             }
@@ -606,6 +611,7 @@ public class PlayerMovement4 : MonoBehaviour
     {
         if (!PauseMenu.pausePressed && grounded)
         {
+            // switch to the free camera
             if (controls.Player.Switch.triggered && mainCamOn)
             {
                 playerCam.gameObject.SetActive(false);
@@ -613,6 +619,7 @@ public class PlayerMovement4 : MonoBehaviour
                 surfaceBeingChanged = true;
                 mainCamOn = false;
             }
+            // switch to the player camera
             else if (controls.Player.Switch.triggered && !mainCamOn)
             {
                 playerCam.gameObject.SetActive(true);
