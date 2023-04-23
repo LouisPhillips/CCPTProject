@@ -80,6 +80,7 @@ public class PlayerMovement4 : MonoBehaviour
 
     private RaycastHit objectCheck;
     private GameObject ui;
+    private GameObject gameUI;
 
     [Header("Respawn")]
     private GameObject respawnPoint;
@@ -101,15 +102,6 @@ public class PlayerMovement4 : MonoBehaviour
 
     [Header("Settings")]
     public Dropdown dropdown;
-
-    [Header("Gravity")]
-    [SerializeField] private float gravity = 9.81f;
-    [SerializeField] private float gravityFallCurrent = -100f;
-    [SerializeField] private float gravityFallMin = -100f;
-    [SerializeField] private float gravityFallMax = -500f;
-    [SerializeField] [Range(-5f, -35f)] float gravityIncrement = -20f;
-    [SerializeField] private float gravityIncrementTime = 0.05f;
-    [SerializeField] private float fallTimer = 0f;
 
     [SerializeField] private bool grounded = true;
     [Range(0f, 1.8f)] float radius = 0.9f;
@@ -143,6 +135,9 @@ public class PlayerMovement4 : MonoBehaviour
         ui = GameObject.FindGameObjectWithTag("Surface/Changer");
         ui.SetActive(false);
 
+        gameUI = GameObject.FindGameObjectWithTag("InGame/UI");
+        gameUI.SetActive(true);
+
         eventSystem = GameObject.FindGameObjectWithTag("Events").GetComponent<EventSystem>();
 
         previousLiftOffRotation = liftOffRotation;
@@ -164,7 +159,10 @@ public class PlayerMovement4 : MonoBehaviour
                 Breaking();
                 Manual();
             }
-
+            if (!PauseMenu.pausePressed)
+            {
+                gameUI.SetActive(true);
+            }
 
             ui.SetActive(false);
         }
@@ -483,16 +481,19 @@ public class PlayerMovement4 : MonoBehaviour
 
     private void Ollie()
     {
+
         // if can press ollie
         if (ollieDelay <= 0f)
         {
-            controls.Player.Ollie.performed += context => olliePressed = true;
+            if (riding)
+            {
+                controls.Player.Ollie.performed += context => olliePressed = true;
+            }
         }
 
         grounded = Physics.Raycast(transform.position, Vector3.down, 0.2f, ground);
-
-        // ollie
-        if (olliePressed && grounded && canOllie && !push)
+        // line of functionality for ollie
+        if (olliePressed && grounded && canOllie)
         {
             liftOffRotation = transform.eulerAngles.y;
             previousLiftOffRotation = liftOffRotation;
@@ -568,7 +569,6 @@ public class PlayerMovement4 : MonoBehaviour
         }
         else
         {
-
             // stopping the follow camera from tracking the player
             if (inAir)
             {
@@ -591,7 +591,7 @@ public class PlayerMovement4 : MonoBehaviour
                     playerCam.gameObject.SetActive(false);
                     transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles + new Vector3(0f, movement.x * 300 * Time.deltaTime, 0f));
                 }
-                
+
                 // if above certain height Y damping on camera will stop
                 if (distanceToGround < 1 && hit.transform.eulerAngles.x == 0)
                 {
@@ -635,31 +635,22 @@ public class PlayerMovement4 : MonoBehaviour
         controls.Player.Turning.performed += context => camMovement = context.ReadValue<Vector2>();
         controls.Player.Look.performed += context => camLook = context.ReadValue<Vector2>();
 
-
         eventSystem.firstSelectedGameObject = GameObject.FindGameObjectWithTag("Surface/Button");
 
-
         Vector3 cameraDirection = (camMovement.y * transform.forward) + (camMovement.x * transform.right);
-        //freeCam.transform.position += cameraDirection * 10 * Time.deltaTime;
 
+        // free camera movement
         freeCam.transform.position += freeCam.transform.forward * freeCamTurnSpeed * camMovement.y * Time.deltaTime;
         freeCam.transform.position += freeCam.transform.right * freeCamTurnSpeed * camMovement.x * Time.deltaTime;
 
         freeCam.transform.eulerAngles += new Vector3(camLook.y * Time.deltaTime * -100, camLook.x * Time.deltaTime * 100, -freeCam.transform.eulerAngles.z);
-        /*if (freeCam.transform.eulerAngles.x < -79)
-        {
-            freeCam.transform.eulerAngles = new Vector3(-79, freeCam.transform.eulerAngles.y, freeCam.transform.eulerAngles.z);
-        }*/
-        /*if (freeCam.transform.eulerAngles.x < -89)
-        {
-            freeCam.transform.eulerAngles = new Vector3(-89, freeCam.transform.eulerAngles.y, freeCam.transform.eulerAngles.z);
-        }*/
-        //camLook.y = Mathf.Clamp(camLook.y, -70f, 70f);
 
+        // check if the raycast is looking at the enviroment that can be modified
         if (Physics.Raycast(freeCam.transform.position, freeCam.transform.forward, out objectCheck, Mathf.Infinity) && !surfaceBeingChanged)
         {
             if (objectCheck.transform.tag == "Layer/Concrete" || objectCheck.transform.tag == "Layer/Grass" || objectCheck.transform.tag == "Layer/Dirt" || objectCheck.transform.tag == "Layer/Custom")
             {
+                // context based controls, if player pressed button south on controller is toggles surface change
                 if (controls.Player.Push.triggered)
                 {
                     surfaceBeingChanged = true;
@@ -675,7 +666,9 @@ public class PlayerMovement4 : MonoBehaviour
     private void ChangeSurface()
     {
         ui.SetActive(true);
+        gameUI.SetActive(false);
         GameObject text = GameObject.FindGameObjectWithTag("Surface/Text");
+        // if surface is selected to change to concrete
         if (surfaceIndex == 0)
         {
             text.GetComponent<Text>().text = "Concrete";
@@ -684,9 +677,8 @@ public class PlayerMovement4 : MonoBehaviour
                 objectCheck.transform.tag = "Layer/Concrete";
                 objectCheck.transform.GetComponent<SurfaceChange>().state = SurfaceChange.enumState.Concrete;
             }
-
         }
-
+        // if surface is selected to change to dirt
         if (surfaceIndex == 1)
         {
             text.GetComponent<Text>().text = "Dirt";
@@ -696,7 +688,7 @@ public class PlayerMovement4 : MonoBehaviour
                 objectCheck.transform.GetComponent<SurfaceChange>().state = SurfaceChange.enumState.Dirt;
             }
         }
-
+        // if surface is selected to change to grass
         if (surfaceIndex == 2)
         {
             text.GetComponent<Text>().text = "Grass";
@@ -706,7 +698,7 @@ public class PlayerMovement4 : MonoBehaviour
                 objectCheck.transform.GetComponent<SurfaceChange>().state = SurfaceChange.enumState.Grass;
             }
         }
-
+        // if surface is selected to change to custom
         if (surfaceIndex == 3)
         {
             text.GetComponent<Text>().text = "Custom";
@@ -721,6 +713,7 @@ public class PlayerMovement4 : MonoBehaviour
         {
             slider.SetActive(false);
         }
+        // if the index goes over the max/min values
         if (surfaceIndex > 3)
         {
             surfaceIndex = 0;
@@ -730,29 +723,31 @@ public class PlayerMovement4 : MonoBehaviour
             surfaceIndex = 3;
         }
 
-
+        // turn off UI if main camera active
         if (mainCamOn)
         {
             ui.SetActive(false);
+            gameUI.SetActive(true);
         }
 
     }
 
+    // weight modifier for slider
     public void AdjustWeight(float addedWeight)
     {
         rb.drag = addedWeight;
     }
-
+    // truck tighness modifier for slider
     public void AdjustTrucks(float truckLooseness)
     {
         maxTurnAngle = truckLooseness;
     }
-
+    // friction modifier for slider
     public void CustomFriction(float friction)
     {
         customDeaccelerationWeight = friction;
     }
-
+    // wheel type options for drop down box
     public void ChangeWheelType()
     {
         if (dropdown.value == 0)
@@ -791,6 +786,7 @@ public class PlayerMovement4 : MonoBehaviour
 
     private void RespawnButtonPressed()
     {
+        // if button north pressed, instant respawn
         if (controls.Player.Respawn.triggered)
         {
             respawning = true;

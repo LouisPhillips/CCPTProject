@@ -36,6 +36,15 @@ public class Animations : MonoBehaviour
             PlayerMovement4.riding = false;
         }
 
+        if(!PlayerMovement4.riding)
+        {
+            if (skateboard.GetComponent<PlayerMovement4>().olliePressed)
+            {
+                GetComponent<Animator>().Play("Ollie");
+                skateboardMotions.GetComponent<Animator>().Play("Ollie");
+            }
+        }
+
         if (GetComponent<Animator>().GetCurrentAnimatorStateInfo(0).IsName("Ollie"))
         {
             PlayerMovement4.ollie = true;

@@ -19,6 +19,7 @@ TagManager:
   - Surface/Slider
   - Events
   - Surface/Button
+  - InGame/UI
   layers:
   - Default
   - TransparentFX
